@@ -57,7 +57,7 @@ public class KeyManagementView extends Div {
 
     private Component weaviateCard(WeaviateHealth health) {
         TextField url = new TextField("Cluster URL (REST endpoint)");
-        url.setValue(keys.get(KeyStore.WEAVIATE_URL));
+        url.setValue(keys.get(KeyStore.WEAVIATE_URL));   // the saved URL, or the configured default
         url.setPlaceholder("xxxx.c0.region.gcp.weaviate.cloud");
         PasswordField key = secretField("Admin API key", KeyStore.WEAVIATE_KEY);
         url.setWidthFull();
@@ -187,7 +187,9 @@ public class KeyManagementView extends Div {
         field.clear();
         boolean saved = keys.has(name);
         field.setPlaceholder(saved ? keys.masked(name) : "not set");
-        field.setHelperText(saved ? "Saved. Leave empty to keep it." : null);
+        field.setHelperText(!saved ? null : keys.fromConfig(name)
+                ? "From the app configuration. Type a key to override it here."
+                : "Saved. Leave empty to keep it.");
     }
 
     private void saveSecret(PasswordField field, String name) {

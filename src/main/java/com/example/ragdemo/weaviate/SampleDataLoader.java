@@ -1,5 +1,7 @@
 package com.example.ragdemo.weaviate;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import io.weaviate.client6.v1.api.collections.CollectionConfig;
 import io.weaviate.client6.v1.api.collections.WeaviateObject;
 import io.weaviate.client6.v1.api.collections.data.InsertManyResponse;
@@ -30,6 +32,8 @@ import java.util.UUID;
  */
 @Component
 public class SampleDataLoader {
+
+    private static final Logger log = LoggerFactory.getLogger(SampleDataLoader.class);
 
     /** One passage. */
     public record Chunk(String source, int chunkNo, String title, String body) {
@@ -62,6 +66,7 @@ public class SampleDataLoader {
     /** Tests pass a collection definition with a local vectorizer. */
     int load(CollectionConfig definition) {
         List<Chunk> chunks = readSampleData();
+        log.info("📥 loading {} passages into Weaviate (collection dropped and re-created)", chunks.size());
         return weaviate.call("load sample data", client -> {
             if (client.collections.exists(DemoDocCollection.NAME)) client.collections.delete(DemoDocCollection.NAME);
             DemoDocCollection.ensure(client, definition);

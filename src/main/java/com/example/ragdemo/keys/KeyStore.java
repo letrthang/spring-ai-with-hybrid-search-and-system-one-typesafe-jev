@@ -1,5 +1,6 @@
 package com.example.ragdemo.keys;
 
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -39,9 +40,11 @@ public class KeyStore {
     public static final String DEFAULT_SYSTEM1_URL = "https://letrthang-aimtas-system-one-laya-slm.hf.space";
 
     private final ApiSettingRepository repository;
+    private final Environment environment;
 
-    public KeyStore(ApiSettingRepository repository) {
+    public KeyStore(ApiSettingRepository repository, Environment environment) {
         this.repository = repository;
+        this.environment = environment;
     }
 
     // ---- typed getters (blank = not set)
@@ -80,9 +83,24 @@ public class KeyStore {
 
     // ---- read / write
 
-    /** The saved value, or "" when there is none. */
+    /**
+     * The value saved in Key Management; if none, the default from the configuration ({@code ragdemo.defaults.*} in
+     * application.yml, filled from environment variables or a git-ignored application-local.yml — see README);
+     * else "".
+     */
     public String get(String name) {
-        return repository.findById(name).map(ApiSetting::getValue).map(String::strip).orElse("");
+        return repository.findById(name).map(ApiSetting::getValue).map(String::strip)
+                .orElseGet(() -> configured(name));
+    }
+
+    /** The configured default of a setting, e.g. {@code weaviate.url} → {@code ragdemo.defaults.weaviate.url}. */
+    String configured(String name) {
+        return environment == null ? "" : environment.getProperty("ragdemo.defaults." + name, "").strip();
+    }
+
+    /** True when the value comes from the configuration, not from Key Management. */
+    public boolean fromConfig(String name) {
+        return repository.findById(name).isEmpty() && !configured(name).isBlank();
     }
 
     /** Saves a value; a blank value removes the setting (so its default applies again). */

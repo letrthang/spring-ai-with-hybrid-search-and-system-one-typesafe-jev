@@ -1,6 +1,7 @@
 # ---- Secrets: never commit keys ----
 # The local H2 database holds the API keys typed in Key Management
 data/
+application-local.yml
 *.mv.db
 *.trace.db
 .env
