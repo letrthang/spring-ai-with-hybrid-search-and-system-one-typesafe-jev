@@ -89,6 +89,20 @@ The app re-checks every 30 seconds and turns the chat back on by itself when all
 
 ---
 
+## 5-minute demo script
+
+1. **🔑 Key Management** — show that only two keys are needed; 🧪 Test turns the pills 🟢.
+2. **🔎 Search Data** — 📥 Load sample data. Search **"reset AER-01"** in BM25, then Vector, then Hybrid: watch the
+   ranks change and RRF merge them.
+3. **💬 Chat** — ask **"How do I reset aerator AER-01 after error E-17?"**.
+   - Open **📚 Sources**: which passages Weaviate found, Laya's three scores, ✅ kept / 🚫 dropped.
+   - Open **🔀 Data flow**: the whole trip — BM25 + vector, RRF, one Laya call per passage, the prompt, System 2.
+4. Ask **"What is on the canteen menu on Friday?"** — the canteen passage is found, but is it about the farm? Watch
+   what System 1 decides.
+5. Show **⚠️ fail closed**: clear the OpenRouter key → the chat is disabled with a banner, nothing is sent.
+
+Test cases and their latest results: [`docs/testing/test_cases.md`](docs/testing/test_cases.md).
+
 ## Run
 
 Needs **Java 25**. Maven comes with the wrapper; Node.js is downloaded by the Vaadin build.
