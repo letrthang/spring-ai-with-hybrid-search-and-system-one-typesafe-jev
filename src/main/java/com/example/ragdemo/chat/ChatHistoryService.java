@@ -72,9 +72,18 @@ public class ChatHistoryService {
         return messages.findBySessionIdOrderBySeq(sessionId);
     }
 
-    /** The saved RagAnswer of an AI message (null for a user message). */
+    /**
+     * The saved RagAnswer of an AI message — null for a user message, or for an answer saved by an older version of
+     * the app in a shape that no longer reads (it is then shown as plain text).
+     */
     public static RagAnswer answerOf(ChatMessage message) {
-        return message.getAnswerJson() == null ? null : JSON.readValue(message.getAnswerJson(), RagAnswer.class);
+        if (message.getAnswerJson() == null) return null;
+        try {
+            return JSON.readValue(message.getAnswerJson(), RagAnswer.class);
+        } catch (RuntimeException e) {
+            log.warn("💾 answer {} saved in an older format, shown as text: {}", message.getId(), e.getMessage());
+            return null;
+        }
     }
 
     static String title(String question) {

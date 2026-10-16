@@ -1,5 +1,6 @@
 package com.example.ragdemo.system1;
 
+import com.example.ragdemo.rag.Http;
 import com.example.ragdemo.rag.SystemDownException;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.rag.Query;
@@ -12,6 +13,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
+import static com.example.ragdemo.rag.ServiceStatus.Service.SYSTEM1;
 
 /**
  * Step 4a of the RAG flow — System 1 <b>filter</b>, a Spring AI {@link DocumentPostProcessor}.
@@ -100,10 +103,11 @@ public class SystemOneFilter implements DocumentPostProcessor {
             return call.get();
         } catch (ExecutionException e) {
             if (e.getCause() instanceof SystemDownException down) throw down;
-            throw new IllegalStateException(e.getCause());
+            // anything else (a bad answer, a bug) also stops the question: fail closed, never pass unchecked text on
+            throw new SystemDownException(SYSTEM1, "status.unreachable", Http.describe(e.getCause()));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException(e);
+            throw new SystemDownException(SYSTEM1, "status.interrupted");
         }
     }
 }
