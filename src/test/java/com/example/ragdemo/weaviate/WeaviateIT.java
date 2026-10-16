@@ -14,6 +14,8 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.net.URI;
+import java.util.Map;
+import java.util.Optional;
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,8 +95,17 @@ class WeaviateIT {
         connector.call("create", c -> DemoDocCollection.ensure(c, local));
         assertThat(health.check().state()).isEqualTo(ServiceStatus.State.WAITING);
         new SampleDataLoader(connector).load(local);
-        int loaded = new SampleDataLoader(connector).load(local);   // loading again starts fresh, never duplicates
+        // a record that is not in the sample files (e.g. added by hand in the Weaviate console)…
+        String stray = "00000000-0000-0000-0000-00000000beef";
+        connector.call("add stray", c -> c.collections.use(DemoDocCollection.NAME).data.insert(
+                Map.of("title", "stray", "body", "not from the sample files", "source", "manual.md", "chunkNo", 1,
+                        "lang", "en"), o -> o.uuid(stray)));
+        // …is gone after 📥 Load: the collection is dropped first, so the result is exactly the sample files
+        int loaded = new SampleDataLoader(connector).load(local);
         assertThat(connector.call("count", DemoDocCollection::count)).isEqualTo(loaded);
+        Optional<?> found = connector.call("find stray", c -> c.collections.use(DemoDocCollection.NAME).query
+                .fetchObjectById(stray));
+        assertThat(found).isEmpty();
         assertThat(health.check().isReady()).isTrue();
 
         // keyword question: BM25 finds the CRISPR passage by its exact terms (the Vietnamese / Japanese copies share
