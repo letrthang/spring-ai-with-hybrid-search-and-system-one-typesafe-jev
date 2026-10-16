@@ -111,7 +111,7 @@ public class SampleDataLoader {
     public static List<Chunk> readSampleData() {
         try {
             Resource[] files = new PathMatchingResourcePatternResolver().getResources("classpath:sample-data/*/*.md");
-            Arrays.sort(files, Comparator.comparing(SampleDataLoader::source));
+            Arrays.sort(files, Comparator.comparing(SampleDataLoader::source, SampleDataLoader::bySourceNumber));
             List<Chunk> chunks = new ArrayList<>();
             for (Resource file : files) {
                 chunks.addAll(split(source(file), file.getContentAsString(StandardCharsets.UTF_8)));
@@ -120,6 +120,22 @@ public class SampleDataLoader {
         } catch (IOException e) {
             throw new IllegalStateException("cannot read sample-data", e);
         }
+    }
+
+    /** Language folder first, then the file's number: "en/9-…" before "en/10-…" before "en/100-…". */
+    static int bySourceNumber(String a, String b) {
+        String langA = a.substring(0, a.indexOf('/'));
+        String langB = b.substring(0, b.indexOf('/'));
+        if (!langA.equals(langB)) return langA.compareTo(langB);
+        int byNumber = Integer.compare(number(a), number(b));
+        return byNumber != 0 ? byNumber : a.compareTo(b);
+    }
+
+    private static int number(String source) {
+        String name = source.substring(source.indexOf('/') + 1);
+        int end = 0;
+        while (end < name.length() && Character.isDigit(name.charAt(end))) end++;
+        return end == 0 ? Integer.MAX_VALUE : Integer.parseInt(name.substring(0, end));
     }
 
     /** "vi/02-pcr.md": the language folder and the file name. */

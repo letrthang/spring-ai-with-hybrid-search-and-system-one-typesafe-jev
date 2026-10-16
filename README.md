@@ -107,12 +107,13 @@ is not persistent, so saved keys are lost on a restart or redeploy; the environm
 
 ### Sample data
 
-📥 **Load sample data** (in 🔎 Search Data) loads **1,500 passages — 500 each in 🇬🇧 English, 🇻🇳 Vietnamese and
-🇯🇵 Japanese** (`sample-data/en|vi|ja`): biotech basics (cells, enzymes, DNA, PCR, CRISPR, sequencing, vaccines…),
-physics basics (mechanics, waves, heat, electricity, optics, atoms…), recirculating aquaculture systems (RAS: filters,
-biofilter, oxygen, CO₂, pH, sensors, alarms…), and office notes with an off-topic canteen menu and a planted prompt
-injection — for System 1 to drop. Search keeps to the language of the question, so an English question gets English
-passages (one fact, not the same fact three times).
+📥 **Load sample data** (in 🔎 Search Data) loads **3,000 passages — 1,000 each in 🇬🇧 English, 🇻🇳 Vietnamese and
+🇯🇵 Japanese** (`sample-data/en|vi|ja`, 110 topics × 3 languages): biotech basics (cells, enzymes, DNA, RNA, PCR / qPCR,
+CRISPR, sequencing, vaccines, mRNA, chromatography, bioreactors…), physics basics (mechanics, waves, heat, electricity,
+optics, atoms, lasers, quantum ideas, relativity…), recirculating aquaculture systems (RAS: filters, biofilter, oxygen,
+CO₂, pH, sensors, alarms, species, energy, AI monitoring…), and office notes with an off-topic canteen menu and a
+planted prompt injection — for System 1 to drop. Search keeps to the language of the question, so an English question
+gets English passages (one fact, not the same fact three times).
 
 ## System 1: default or your own
 

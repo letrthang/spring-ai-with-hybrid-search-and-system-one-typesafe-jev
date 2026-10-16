@@ -3,6 +3,8 @@ package com.example.ragdemo.weaviate;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,6 +39,29 @@ class SampleDataLoaderTest {
         assertThat(chunks).anyMatch(c -> c.title().contains("Canteen menu"));                // off-topic
         assertThat(chunks).extracting(SampleDataLoader.Chunk::id).doesNotHaveDuplicates();
         assertThat(SampleDataLoader.readSampleData().getFirst().id()).isEqualTo(chunks.getFirst().id());
+    }
+
+    @Test
+    void sampleDataHasOneThousandPassagesPerLanguageInTheSameFiles() {
+        Map<String, List<SampleDataLoader.Chunk>> byLang = SampleDataLoader.readSampleData().stream()
+                .collect(Collectors.groupingBy(SampleDataLoader.Chunk::lang));
+
+        assertThat(byLang.keySet()).containsExactlyInAnyOrder("en", "vi", "ja");
+        byLang.forEach((lang, chunks) -> assertThat(chunks).as(lang).hasSize(1000));
+        // the same files and sections in every language (translations, not different data)
+        assertThat(sections(byLang.get("vi"))).isEqualTo(sections(byLang.get("en")));
+        assertThat(sections(byLang.get("ja"))).isEqualTo(sections(byLang.get("en")));
+    }
+
+    @Test
+    void filesAreReadInNumberOrder() {
+        assertThat(List.of("en/100-a.md", "vi/1-a.md", "en/11-a.md", "en/9-a.md").stream()
+                .sorted(SampleDataLoader::bySourceNumber).toList())
+                .containsExactly("en/9-a.md", "en/11-a.md", "en/100-a.md", "vi/1-a.md");
+    }
+
+    private static List<String> sections(List<SampleDataLoader.Chunk> chunks) {
+        return chunks.stream().map(c -> c.source().substring(3) + "#" + c.chunkNo()).toList();
     }
 
     @Test

@@ -12,7 +12,7 @@ The **Results** table at the end records each run with its date and where it ran
 - **Render** — <https://spring-ai-with-hybrid-search-and-system.onrender.com> (default keys from the service's
   environment variables `RAGDEMO_WEAVIATE_URL`, `RAGDEMO_WEAVIATE_KEY`, `RAGDEMO_OPENROUTER_KEY`).
 
-**Sample data** (1,500 passages = 500 × en / vi / ja, `sample-data/<lang>/`): biotech basics, physics basics,
+**Sample data** (3,000 passages = 1,000 × en / vi / ja, `sample-data/<lang>/`): biotech basics, physics basics,
 recirculating aquaculture (RAS) and the fish-farm handbook, "how this demo works", and office notes with an off-topic
 canteen menu and a planted prompt injection. Searches keep to the question's language.
 
@@ -23,7 +23,7 @@ canteen menu and a planted prompt injection. Searches keep to the question's lan
    **Render:** open the URL; the first visit after 15 idle minutes takes about a minute.
 2. If the pills on 💬 Chat are not all 🟢: open 🔑 **Key Management**, enter the Weaviate **cluster URL** + **Admin** key
    and the OpenRouter key, press 💾 **Save** on each card.
-3. Open 🔎 **Search Data** → press 📥 **Load sample data** once (≈ 1–2 min for 1,500 passages).
+3. Open 🔎 **Search Data** → press 📥 **Load sample data** once (≈ 2–4 min for 3,000 passages).
 
 ---
 
@@ -88,14 +88,14 @@ dot pulses); the tooltip is the full sentence (e.g. "🟢 ⚡ System 1: Laya is 
 1. 🔎 Search Data → 📥 Load sample data.
 2. (Optional) add a record by hand in the Weaviate console first, then load again.
 
-**Expected:** "⏳ deleting the old collection and loading the sample data…", then "📥 Old data removed, 1500 passages
-loaded"; pill 🟢 "1500 passages"; a hand-added record is gone. (Automated: `WeaviateIT` stray-record check.)
+**Expected:** "⏳ deleting the old collection and loading the sample data…", then "📥 Old data removed, 3000 passages
+loaded"; pill 🟢 "3000 passages"; a hand-added record is gone. (Automated: `WeaviateIT` stray-record check.)
 
 ### TC-09 · Lazy list of all passages
 1. Leave the query empty → 🔎 Search.
 2. Scroll the grid to the bottom.
 
-**Expected:** "1500 passages (no query)"; rows load page by page while scrolling; # numbers continue (1…1500);
+**Expected:** "3000 passages (no query)"; rows load page by page while scrolling; # numbers continue (1…3000);
 columns #, Title, Source only.
 
 ### TC-10 · Columns per search mode
