@@ -132,10 +132,10 @@ public class SearchDataView extends Div {
     }
 
     private Div results() {
-        grid.addColumn(h -> items.indexOf(h) + 1).setHeader("#").setWidth("4em").setFlexGrow(0)
+        grid.addColumn(h -> items.indexOf(h) + 1).setHeader(InfoHint.with(new Span("#"), Hint.ROW_ORDER)).setWidth("4em").setFlexGrow(0)
                 .setTextAlign(ColumnTextAlign.END);
-        grid.addColumn(Hit::title).setHeader("Title").setFlexGrow(4);
-        grid.addColumn(Hit::source).setHeader("Source").setFlexGrow(2);
+        grid.addColumn(Hit::title).setHeader(InfoHint.with(new Span("Title"), Hint.CHUNKS)).setFlexGrow(4);
+        grid.addColumn(Hit::source).setHeader(InfoHint.with(new Span("Source"), Hint.RECORD)).setFlexGrow(2);
         bm25Column = grid.addColumn(h -> rank(h.bm25Rank(), h.bm25Score(), "%.2f")).setHeader(InfoHint.with(new Span("BM25 rank · score"), Hint.BM25))
                 .setFlexGrow(1);
         vectorColumn = grid.addColumn(h -> rank(h.vectorRank(), h.vectorDistance(), "%.3f"))
@@ -193,7 +193,18 @@ public class SearchDataView extends Div {
         chips.addClassNames("flex", "flex-wrap", "gap-2");
         Paragraph body = new Paragraph(hit.body());
         body.addClassNames("m-0", "whitespace-pre-line");
-        Div content = new Div(source, chips, body);
+        boolean searched = hit.bm25Rank() != null || hit.vectorRank() != null;
+        Paragraph meaning = new Paragraph(searched
+                ? "How this search ranked the passage: its place in the BM25 list (with the BM25 score), its place in "
+                + "the vector list (with the distance — smaller = closer in meaning) and the RRF score that merges "
+                + "both. Click a chip to learn more."
+                : "No search ran — this is the plain list of everything stored, so there are no ranks yet (—). "
+                + "Type a question and press 🔎 Search to see how BM25, vector search and RRF rank this passage.");
+        meaning.addClassNames("rd-muted", "text-xs", "m-0");
+        Span textLabel = new Span("📄 The passage text, exactly as stored in Weaviate (double-click the row for its "
+                + "UUID, fields and vector):");
+        textLabel.addClassNames("rd-muted", "text-xs");
+        Div content = new Div(source, chips, meaning, textLabel, body);
         content.addClassNames("flex", "flex-col", "gap-3");
         return content;
     }
