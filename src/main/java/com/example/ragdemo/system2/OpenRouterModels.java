@@ -31,13 +31,6 @@ public class OpenRouterModels {
     public record ModelInfo(String id, String name, Integer context, double promptPrice, double completionPrice,
                             boolean tools, boolean free) {
 
-        /** The footer line of a dropdown item, e.g. "🆓 Free · 262K context · 🛠 tools". */
-        public String details() {
-            String price = free ? "🆓 Free"
-                    : String.format(Locale.ROOT, "💲 $%s in / $%s out per 1M tokens", money(promptPrice),
-                    money(completionPrice));
-            return price + (context == null ? "" : " · " + shortNumber(context) + " context") + (tools ? " · 🛠 tools" : "");
-        }
     }
 
     private final KeyStore keys;
@@ -99,11 +92,11 @@ public class OpenRouterModels {
         }
     }
 
-    static String money(double value) {
+    public static String money(double value) {
         return value >= 10 ? String.format(Locale.ROOT, "%.0f", value) : String.format(Locale.ROOT, "%.2f", value);
     }
 
-    static String shortNumber(int n) {
+    public static String shortNumber(int n) {
         if (n >= 1_000_000) return (n % 1_000_000 == 0 ? String.valueOf(n / 1_000_000) : String.format(Locale.ROOT, "%.1f", n / 1e6)) + "M";
         if (n >= 1_000) return Math.round(n / 1024.0) + "K";
         return String.valueOf(n);

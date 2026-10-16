@@ -77,6 +77,16 @@ public class SystemOneFilter implements DocumentPostProcessor {
         return copy;
     }
 
+    /** The i18n key of a verdict, e.g. "dropped: prompt injection" → "verdict.injection". */
+    public static String verdictKey(Object verdict) {
+        String v = verdict == null ? "" : verdict.toString();
+        if (v.equals("kept")) return "verdict.kept";
+        if (v.contains("injection")) return "verdict.injection";
+        if (v.contains("not relevant")) return "verdict.notRelevant";
+        if (v.contains("does not answer")) return "verdict.noAnswer";
+        return "verdict.unknown";
+    }
+
     /** "kept", or why it was dropped — the first rule that failed. */
     static String verdict(LayaClient.Scores s) {
         if (s.injection() >= MAX_INJECTION) return "dropped: prompt injection";

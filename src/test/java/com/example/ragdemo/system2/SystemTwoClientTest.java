@@ -76,7 +76,7 @@ class SystemTwoClientTest {
     void wrongKeyStopsAtOnce() {
         assertThatThrownBy(() -> client(m -> {
             throw UnauthorizedException.builder().headers(Headers.builder().build()).build();
-        }).generate("sys", "q")).isInstanceOf(SystemDownException.class).hasMessageContaining("invalid API key");
+        }).generate("sys", "q")).isInstanceOf(SystemDownException.class).hasMessageContaining("status.invalidKey");
         assertThat(called).containsExactly("a:free");
     }
 
@@ -84,7 +84,7 @@ class SystemTwoClientTest {
     void allModelsFailingIsSystemDown() {
         assertThatThrownBy(() -> client(m -> {
             throw busy();
-        }).generate("sys", "q")).isInstanceOf(SystemDownException.class).hasMessageContaining("every model failed");
+        }).generate("sys", "q")).isInstanceOf(SystemDownException.class).hasMessageContaining("status.system2.allFailed");
         assertThat(called).hasSize(3);
     }
 
@@ -92,7 +92,7 @@ class SystemTwoClientTest {
     void noKeyIsSystemDownWithoutAnyCall() {
         when(keys.system2Key()).thenReturn("");
         assertThatThrownBy(() -> client(m -> answer("x")).generate("sys", "q"))
-                .isInstanceOf(SystemDownException.class).hasMessageContaining("no API key");
+                .isInstanceOf(SystemDownException.class).hasMessageContaining("status.system2.noKey");
         assertThat(called).isEmpty();
     }
 }

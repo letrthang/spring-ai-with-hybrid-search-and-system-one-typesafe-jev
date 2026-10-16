@@ -25,7 +25,7 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
 import com.vaadin.flow.component.radiobutton.RadioGroupVariant;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.HasDynamicTitle;
 import com.vaadin.flow.router.Route;
 
 import java.util.List;
@@ -39,8 +39,7 @@ import java.util.Locale;
  * once). Every Weaviate call runs on a virtual thread.
  */
 @Route("search")
-@PageTitle("Search Data · RAG demo")
-public class SearchDataView extends Div {
+public class SearchDataView extends Div implements HasDynamicTitle {
 
     static final int BROWSE_LIMIT = 200;
     static final int SEARCH_LIMIT = 40;   // 20 BM25 + 20 vector at most, fewer after merging
@@ -55,9 +54,9 @@ public class SearchDataView extends Div {
 
     private final TextField query = new TextField();
     private final RadioButtonGroup<Mode> mode = new RadioButtonGroup<>();
-    private final Button searchButton = new Button("🔎 Search");
-    private final Button loadButton = new Button("📥 Load sample data");
-    private final Button clearButton = new Button("🗑 Clear collection");
+    private final Button searchButton = new Button(Tr.t("search.search"));
+    private final Button loadButton = new Button(Tr.t("search.load"));
+    private final Button clearButton = new Button(Tr.t("search.clear"));
     private final StatusPill pill = new StatusPill(ServiceStatus.Service.WEAVIATE);
     private final Paragraph warning = new Paragraph();
     private final Span resultInfo = new Span();
@@ -76,20 +75,19 @@ public class SearchDataView extends Div {
         this.records = records;
         addClassNames("p-4", "flex", "flex-col", "gap-3", "h-full", "box-border");
 
-        Paragraph intro = new Paragraph("Search the Weaviate collection by keywords (BM25), by meaning (vector) or "
-                + "both merged with RRF (hybrid). Try \"Newton's second law\" and \"why does warm water hold less oxygen\" in each mode.");
+        Paragraph intro = new Paragraph(Tr.t("search.intro"));
         intro.addClassNames("rd-muted", "m-0");
         warning.addClassNames("rd-warning", "m-0", "p-3");
         warning.setVisible(false);
 
-        add(InfoHint.with(new H2("🔎 Search Data"), Hint.WEAVIATE), intro, toolbar(), statusRow(), warning, results());
+        add(InfoHint.with(new H2(Tr.t("search.title")), Hint.WEAVIATE), intro, toolbar(), statusRow(), warning, results());
         addAttachListener(e -> checkHealth());   // not in the constructor: background work needs the attached UI
     }
 
     // ------------------------------------------------------------------ layout
 
     private Div toolbar() {
-        query.setPlaceholder("Question or keywords — empty = list all");
+        query.setPlaceholder(Tr.t("search.placeholder"));
         query.setClearButtonVisible(true);
         query.addClassNames("grow", "min-w-0");
         query.addKeyPressListener(Key.ENTER, e -> search());
@@ -97,8 +95,8 @@ public class SearchDataView extends Div {
         mode.setItems(Mode.values());
         mode.setItemLabelGenerator(m -> switch (m) {
             case BM25 -> "BM25";
-            case VECTOR -> "Vector";
-            case HYBRID -> "Hybrid";
+            case VECTOR -> Tr.t("common.vector");
+            case HYBRID -> Tr.t("search.hybrid");
         });
         mode.setValue(Mode.HYBRID);
         mode.addThemeVariants(RadioGroupVariant.AURA_HORIZONTAL);
@@ -123,7 +121,7 @@ public class SearchDataView extends Div {
     }
 
     private Div statusRow() {
-        Span hint = new Span("Click selects · click again to close · double-click a row for 🔍 Details…");
+        Span hint = new Span(Tr.t("grid.clickHint"));
         hint.addClassNames("rd-muted", "text-sm");
         Div row = new Div(pill, InfoHint.with(resultInfo, Hint.SEARCH_MODES), hint);
         row.addClassNames("flex", "flex-wrap", "gap-3", "items-center");
@@ -134,22 +132,22 @@ public class SearchDataView extends Div {
     private Div results() {
         grid.addColumn(h -> items.indexOf(h) + 1).setHeader(InfoHint.with(new Span("#"), Hint.ROW_ORDER)).setWidth("4em").setFlexGrow(0)
                 .setTextAlign(ColumnTextAlign.END);
-        grid.addColumn(Hit::title).setHeader(InfoHint.with(new Span("Title"), Hint.CHUNKS)).setFlexGrow(4);
-        grid.addColumn(Hit::source).setHeader(InfoHint.with(new Span("Source"), Hint.RECORD)).setFlexGrow(2);
+        grid.addColumn(Hit::title).setHeader(InfoHint.with(new Span(Tr.t("search.col.title")), Hint.CHUNKS)).setFlexGrow(4);
+        grid.addColumn(Hit::source).setHeader(InfoHint.with(new Span(Tr.t("search.col.source")), Hint.RECORD)).setFlexGrow(2);
         // every score cell is a clickable lesson chip: "#1 · 9.81 ℹ️"
         bm25Column = grid.addComponentColumn(h -> InfoHint.chip(rank(h.bm25Rank(), h.bm25Score(), "%.2f"), Hint.BM25))
-                .setHeader(InfoHint.with(new Span("BM25 rank · score"), Hint.BM25))
+                .setHeader(InfoHint.with(new Span(Tr.t("search.col.bm25")), Hint.BM25))
                 .setFlexGrow(1);
         vectorColumn = grid.addComponentColumn(h -> InfoHint.chip(rank(h.vectorRank(), h.vectorDistance(), "%.3f"),
                         Hint.VECTOR))
-                .setHeader(InfoHint.with(new Span("Vector rank · distance"), Hint.VECTOR)).setFlexGrow(1);
+                .setHeader(InfoHint.with(new Span(Tr.t("search.col.vector")), Hint.VECTOR)).setFlexGrow(1);
         rrfColumn = grid.addComponentColumn(h -> InfoHint.chip(
                         h.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f", h.rrfScore()), Hint.RRF))
-                .setHeader(InfoHint.with(new Span("RRF score"), Hint.RRF)).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
+                .setHeader(InfoHint.with(new Span(Tr.t("search.col.rrf")), Hint.RRF)).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         showScoreColumns(null);
         grid.getColumns().forEach(c -> c.setResizable(true));
         grid.addThemeVariants(GridVariant.ROW_STRIPES);
-        grid.setEmptyStateText("No passages. Load the sample data, or try another query.");
+        grid.setEmptyStateText(Tr.t("search.empty"));
         grid.setSizeFull();
 
         // single click selects → detail card; clicking the selected row again deselects → card closes
@@ -170,9 +168,9 @@ public class SearchDataView extends Div {
 
         Button fullScreen = new Button("⛶", e -> toggleFullScreen());
         fullScreen.addThemeVariants(ButtonVariant.TERTIARY);
-        fullScreen.getElement().setAttribute("title", "Full screen (Esc to exit)");
-        fullScreen.getElement().setAttribute("aria-label", "Full screen");
-        Div title = InfoHint.with(new Span("📄 Passages"), Hint.RECORD);
+        fullScreen.getElement().setAttribute("title", Tr.t("common.fullScreenEsc"));
+        fullScreen.getElement().setAttribute("aria-label", Tr.t("common.fullScreen"));
+        Div title = InfoHint.with(new Span(Tr.t("search.passages")), Hint.RECORD);
         title.addClassNames("font-semibold");
         Div head = new Div(title, fullScreen);
         head.addClassNames("flex", "justify-between", "items-center");
@@ -187,11 +185,11 @@ public class SearchDataView extends Div {
 
     /** What the detail card shows: where the passage comes from, how each search ranked it, and its text. */
     static Div detailBody(Hit hit) {
-        Span source = new Span("📄 " + hit.source() + (hit.chunkNo() == null ? "" : " · passage " + hit.chunkNo()));
+        Span source = new Span("📄 " + hit.source() + (hit.chunkNo() == null ? "" : " · " + Tr.t("common.passage", hit.chunkNo())));
         source.addClassNames("rd-muted", "text-sm");
         Div chips = new Div(
                 InfoHint.chip("BM25 " + rank(hit.bm25Rank(), hit.bm25Score(), "%.2f"), Hint.BM25),
-                InfoHint.chip("Vector " + rank(hit.vectorRank(), hit.vectorDistance(), "%.3f"), Hint.VECTOR),
+                InfoHint.chip(Tr.t("common.vector") + " " + rank(hit.vectorRank(), hit.vectorDistance(), "%.3f"), Hint.VECTOR),
                 InfoHint.chip("RRF " + (hit.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f",
                         hit.rrfScore())), Hint.RRF));
         chips.addClassNames("flex", "flex-wrap", "gap-2");
@@ -199,14 +197,10 @@ public class SearchDataView extends Div {
         body.addClassNames("m-0", "whitespace-pre-line");
         boolean searched = hit.bm25Rank() != null || hit.vectorRank() != null;
         Paragraph meaning = new Paragraph(searched
-                ? "How this search ranked the passage: its place in the BM25 list (with the BM25 score), its place in "
-                + "the vector list (with the distance — smaller = closer in meaning) and the RRF score that merges "
-                + "both. Click a chip to learn more."
-                : "No search ran — this is the plain list of everything stored, so there are no ranks yet (—). "
-                + "Type a question and press 🔎 Search to see how BM25, vector search and RRF rank this passage.");
+                ? Tr.t("search.detail.searched")
+                : Tr.t("search.detail.list"));
         meaning.addClassNames("rd-muted", "text-xs", "m-0");
-        Span textLabel = new Span("📄 The passage text, exactly as stored in Weaviate (double-click the row for its "
-                + "UUID, fields and vector):");
+        Span textLabel = new Span(Tr.t("search.detail.text"));
         textLabel.addClassNames("rd-muted", "text-xs");
         Div content = new Div(source, chips, meaning, textLabel, body);
         content.addClassNames("flex", "flex-col", "gap-3");
@@ -239,7 +233,7 @@ public class SearchDataView extends Div {
         status = newStatus;
         pill.show(status);
         warning.setVisible(!status.isReady());
-        warning.setText("⚠️ " + status.service().label + ": " + status.reason());
+        warning.setText("⚠️ " + Tr.t(status.service().key()) + ": " + Tr.t(status.reason()));
         applyEnabled();
         if (status.isReady() && items.isEmpty()) search();
     }
@@ -257,19 +251,20 @@ public class SearchDataView extends Div {
     private void search() {
         String text = query.getValue().strip();
         Mode m = mode.getValue();
-        setBusy(true, text.isEmpty() ? "⏳ loading…" : "⏳ searching…");
+        setBusy(true, Tr.t(text.isEmpty() ? "search.loading" : "search.searching"));
         Background.run(this, () -> {
             if (text.isEmpty()) {
-                List<Hit> all = retriever.list(0, BROWSE_LIMIT);
-                return new Shown(all, all.size() + " passages (no query)");
+                return new Shown(retriever.list(0, BROWSE_LIMIT), null);
             }
             HybridRetriever.Result r = retriever.search(text, m, SEARCH_LIMIT);
-            return new Shown(r.hits(), r.hits().size() + " passages · " + describe(r, m));
+            return new Shown(r.hits(), r);
         }, shown -> {
+            // texts are built here, on the page (in its language), not on the background thread
             items = shown.hits;
             grid.setItems(items);
             showScoreColumns(text.isEmpty() ? null : m);
-            resultInfo.setText(shown.info);
+            resultInfo.setText(shown.result == null ? Tr.t("search.info.list", items.size())
+                    : Tr.t("search.info.search", items.size(), describe(shown.result, m)));
             setBusy(false, null);
         }, this::failed);
     }
@@ -285,19 +280,19 @@ public class SearchDataView extends Div {
     }
 
     private static String describe(HybridRetriever.Result r, Mode m) {
-        String bm25 = "BM25 " + r.bm25Count() + " in " + r.bm25Ms() + " ms";
-        String vector = "vector " + r.vectorCount() + " in " + r.vectorMs() + " ms";
+        String bm25 = Tr.t("search.info.bm25", r.bm25Count(), r.bm25Ms());
+        String vector = Tr.t("search.info.vector", r.vectorCount(), r.vectorMs());
         return switch (m) {
             case BM25 -> bm25;
             case VECTOR -> vector;
-            case HYBRID -> bm25 + " · " + vector + " · merged by RRF";
+            case HYBRID -> bm25 + " · " + vector + " · " + Tr.t("search.info.merged");
         };
     }
 
     private void loadSampleData() {
-        setBusy(true, "⏳ loading sample data into Weaviate…");
+        setBusy(true, Tr.t("search.loadingData"));
         Background.run(this, loader::load, count -> {
-            Notification.show("📥 " + count + " passages loaded").addThemeVariants(NotificationVariant.SUCCESS);
+            Notification.show(Tr.t("search.loaded", count)).addThemeVariants(NotificationVariant.SUCCESS);
             setBusy(false, null);
             items = List.of();
             checkHealth();
@@ -305,11 +300,10 @@ public class SearchDataView extends Div {
     }
 
     private void confirmClear() {
-        Paragraph text = new Paragraph("Delete the whole DemoDoc collection from Weaviate? You can load the sample "
-                + "data again afterwards.");
-        AppDialog dialog = new AppDialog("🗑 Clear collection", text);
-        Button delete = new Button("🗑 Delete collection", e -> {
-            setBusy(true, "⏳ deleting…");
+        Paragraph text = new Paragraph(Tr.t("search.clearConfirm"));
+        AppDialog dialog = new AppDialog(Tr.t("search.clear"), text);
+        Button delete = new Button(Tr.t("search.delete"), e -> {
+            setBusy(true, Tr.t("search.deleting"));
             Background.run(this, () -> {
                 loader.deleteCollection();
                 return true;
@@ -342,6 +336,11 @@ public class SearchDataView extends Div {
         if (text != null) resultInfo.setText(text);
     }
 
-    private record Shown(List<Hit> hits, String info) {
+    @Override
+    public String getPageTitle() {
+        return Tr.t("page.search");
+    }
+
+    private record Shown(List<Hit> hits, HybridRetriever.Result result) {
     }
 }

@@ -27,17 +27,21 @@ public class RecordDialog extends AppDialog {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
-    /** The DemoDoc fields: name, type, how Weaviate indexes it. Kept in step with DemoDocCollection. */
-    static final List<String[]> SCHEMA = List.of(
-            new String[]{"title", "text", "word tokens → BM25 (weight ×2) · part of the vector"},
-            new String[]{"body", "text", "word tokens → BM25 · part of the vector"},
-            new String[]{"source", "text", "whole value (field) · filter only, not searched"},
-            new String[]{"chunkNo", "int", "filter only"},
-            new String[]{"(vector)", "float[]", "text2vec-weaviate over title + body · HFresh index · cosine"});
+    /** One row of a table in the dialog: a label, its value, and the lesson that explains it (may be null). */
+    record Row(String label, String value, Hint hint) {
+    }
+
+    /** The DemoDoc fields: name, type, how Weaviate indexes it (i18n key), lesson. Kept in step with DemoDocCollection. */
+    static final List<Row> SCHEMA = List.of(
+            new Row("title", "text", Hint.BM25),
+            new Row("body", "text", Hint.BM25),
+            new Row("source", "text", Hint.SCHEMA),
+            new Row("chunkNo", "int", Hint.SCHEMA),
+            new Row("(vector)", "float[]", Hint.EMBEDDING));
 
     public RecordDialog(Hit hit, WeaviateRecords records, Component passage) {
         super("🔍 " + hit.title());
-        Span loading = new Span("⏳ Reading the record from Weaviate…");
+        Span loading = new Span(Tr.t("record.reading"));
         loading.addClassNames("rd-muted", "text-sm");
         Div body = new Div(passage, loading);
         body.addClassNames("flex", "flex-col", "gap-4");
@@ -48,7 +52,7 @@ public class RecordDialog extends AppDialog {
             Background.run(body, () -> records.fetch(hit.id()), stored -> {
                 body.remove(loading);
                 if (stored == null) {
-                    body.add(new Span("This record no longer exists in Weaviate."));
+                    body.add(new Span(Tr.t("record.gone")));
                 } else {
                     body.add(where(stored, hit), structure(), vector(stored), raw(stored));
                 }
@@ -60,37 +64,37 @@ public class RecordDialog extends AppDialog {
 
     private static Div where(StoredRecord r, Hit hit) {
         Div rows = table(List.of(
-                new String[]{"Cluster", r.cluster()},
-                new String[]{"Collection", r.collection()},
-                new String[]{"Object UUID (key)", r.uuid()},
-                new String[]{"How the UUID is made",
-                        "UUID.nameUUIDFromBytes(\"" + hit.source() + "#" + hit.chunkNo() + "\") — fixed, from file + section"},
-                new String[]{"From file", "src/main/resources/sample-data/" + hit.source() + " · section " + hit.chunkNo()},
-                new String[]{"Created / updated", time(r.createdAt()) + " / " + time(r.updatedAt())},
-                new String[]{"REST address", r.cluster() + "/v1/objects/" + r.collection() + "/" + r.uuid()}));
-        return section("📍 Where the record lives", Hint.RECORD, rows);
+                new Row(Tr.t("record.cluster"), r.cluster(), Hint.WEAVIATE),
+                new Row(Tr.t("record.collection"), r.collection(), Hint.SCHEMA),
+                new Row(Tr.t("record.uuid"), r.uuid(), Hint.RECORD),
+                new Row(Tr.t("record.uuidHow"), Tr.t("record.uuidHow.value", hit.source() + "#" + hit.chunkNo()),
+                        Hint.RECORD),
+                new Row(Tr.t("record.file"), Tr.t("record.file.value", "src/main/resources/sample-data/" + hit.source(),
+                        hit.chunkNo()), Hint.CHUNKS),
+                new Row(Tr.t("record.times"), time(r.createdAt()) + " / " + time(r.updatedAt()), Hint.RECORD),
+                new Row(Tr.t("record.rest"), r.cluster() + "/v1/objects/" + r.collection() + "/" + r.uuid(), Hint.RECORD)));
+        return section(Tr.t("record.where"), Hint.RECORD, rows);
     }
 
     // ------------------------------------------------------------------ 🧱 data structure
 
     private static Div structure() {
-        List<String[]> rows = new ArrayList<>();
-        rows.add(new String[]{"Field", "Type · how it is indexed"});
-        for (String[] f : SCHEMA) rows.add(new String[]{f[0], f[1] + " · " + f[2]});
+        List<Row> rows = new ArrayList<>();
+        rows.add(new Row(Tr.t("record.field"), Tr.t("record.fieldHow"), null));
+        for (Row f : SCHEMA) rows.add(new Row(f.label(), f.value() + " · " + Tr.t("record.index." + f.label()), f.hint()));
         Div table = table(rows);
         table.getChildren().findFirst().ifPresent(header -> header.addClassName("font-semibold"));
-        return section("🧱 Data structure — collection " + DemoDocCollection.NAME, Hint.SCHEMA, table);
+        return section(Tr.t("record.structure", DemoDocCollection.NAME), Hint.SCHEMA, table);
     }
 
     // ------------------------------------------------------------------ 🧮 vector
 
     private static Div vector(StoredRecord r) {
-        String text = r.vector() == null ? "No vector returned."
-                : r.vector().length + " numbers (dimensions), made by Weaviate from title + body. First 8: "
-                + preview(r.vector(), 8);
+        String text = r.vector() == null ? Tr.t("record.noVector")
+                : Tr.t("record.vectorText", r.vector().length, preview(r.vector(), 8));
         Span span = new Span(text);
         span.addClassNames("text-sm", "break-all");
-        return section("🧮 Vector", Hint.EMBEDDING, span);
+        return section(Tr.t("record.vector"), Hint.EMBEDDING, span);
     }
 
     // ------------------------------------------------------------------ { } raw record
@@ -102,10 +106,10 @@ public class RecordDialog extends AppDialog {
         json.put("properties", r.properties());
         json.put("creationTimeUnix", r.createdAt());
         json.put("lastUpdateTimeUnix", r.updatedAt());
-        json.put("vector", r.vector() == null ? null : "[" + preview(r.vector(), 4) + ", … " + r.vector().length + " numbers]");
+        json.put("vector", r.vector() == null ? null : "[" + preview(r.vector(), 4) + ", … " + r.vector().length + "]");
         Pre pre = new Pre(JSON.writerWithDefaultPrettyPrinter().writeValueAsString(json));
         pre.addClassNames("rd-json", "m-0");
-        return section("{ } Raw record (as stored in Weaviate)", Hint.RECORD, pre);
+        return section(Tr.t("record.raw"), Hint.RECORD, pre);
     }
 
     // ------------------------------------------------------------------ helpers
@@ -118,34 +122,20 @@ public class RecordDialog extends AppDialog {
         return section;
     }
 
-    private static Div table(List<String[]> rows) {
+    private static Div table(List<Row> rows) {
         Div table = new Div();
         table.addClassNames("rd-record-table", "text-sm");
-        for (String[] row : rows) {
-            Span keyText = new Span(row[0]);
+        for (Row row : rows) {
+            Span keyText = new Span(row.label());
             keyText.addClassNames("rd-muted");
-            Hint hint = hintFor(row[0]);
-            Div key = hint == null ? new Div(keyText) : InfoHint.with(keyText, hint);
-            Span value = new Span(row[1]);
+            Div key = row.hint() == null ? new Div(keyText) : InfoHint.with(keyText, row.hint());
+            Span value = new Span(row.value());
             value.addClassNames("break-all");
             Div line = new Div(key, value);
             line.addClassName("rd-record-row");
             table.add(line);
         }
         return table;
-    }
-
-    /** The lesson for a row of the record dialog, by its label. */
-    static Hint hintFor(String key) {
-        return switch (key) {
-            case "Cluster" -> Hint.WEAVIATE;
-            case "Collection", "source", "chunkNo" -> Hint.SCHEMA;
-            case "Object UUID (key)", "How the UUID is made", "Created / updated", "REST address" -> Hint.RECORD;
-            case "From file" -> Hint.CHUNKS;
-            case "title", "body" -> Hint.BM25;
-            case "(vector)" -> Hint.EMBEDDING;
-            default -> null;
-        };
     }
 
     private static String preview(float[] v, int n) {

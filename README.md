@@ -60,7 +60,8 @@ flowchart LR
 The app has three pages: **💬 Chat** (answers with 📚 Sources, 🔬 Trace and a 🔀 Data flow dialog that shows every step
 with timings), **🔎 Search Data** (compare BM25 / Vector / Hybrid, double-click a row to see the stored record) and
 **🔑 Key Management**. Every important part has an **ℹ️** button that explains it — what it is, what it does, how it
-links to the rest, and a little theory. Plan: issue [#2](https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/issues/2) · design: [architecture.md](architecture.md).
+links to the rest, and a little theory. The whole page, hints included, is in 🇬🇧 English, 🇻🇳 Tiếng Việt and
+🇯🇵 日本語 (dropdown at the top right). Plan: issue [#2](https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/issues/2) · design: [architecture.md](architecture.md).
 
 **Live demo:** <https://spring-ai-with-hybrid-search-and-system.onrender.com> (free instance: the first visit after 15
 idle minutes takes about a minute).

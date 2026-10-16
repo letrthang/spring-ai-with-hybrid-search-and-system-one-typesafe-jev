@@ -44,7 +44,8 @@ public class ChatHistoryService {
         int seq = session.getMessageCount();
         messages.save(new ChatMessage(session.getId(), seq + 1, ChatMessage.Sender.USER, ChatMessage.Status.OK,
                 answer.question(), null, now));
-        String aiText = answer.failed() ? "⚠️ " + answer.failure().service().label + ": " + answer.failure().reason()
+        // the message text is for the database / logs; the page shows the translated RagAnswer from answerJson
+        String aiText = answer.failed() ? "⚠️ " + answer.failure().service() + ": " + answer.failure().reason()
                 : answer.text();
         messages.save(new ChatMessage(session.getId(), seq + 2, ChatMessage.Sender.AI,
                 answer.failed() ? ChatMessage.Status.FAILED : ChatMessage.Status.OK, aiText,

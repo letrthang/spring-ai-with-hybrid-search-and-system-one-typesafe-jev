@@ -18,8 +18,8 @@ public class DetailCard extends Div {
         Button close = new Button("✕", e -> onClose.run());
         close.addThemeVariants(ButtonVariant.TERTIARY);
         close.addClassName("shrink-0");
-        close.getElement().setAttribute("aria-label", "Close");
-        close.getElement().setAttribute("title", "Close");
+        close.getElement().setAttribute("aria-label", Tr.t("common.close"));
+        close.getElement().setAttribute("title", Tr.t("common.close"));
         Div header = new Div(heading, close);
         header.addClassNames("rd-detail-header", "flex", "items-start", "justify-between", "gap-2", "px-4", "pt-3",
                 "pb-2");

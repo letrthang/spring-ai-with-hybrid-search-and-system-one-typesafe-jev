@@ -48,7 +48,7 @@ public class SystemTwoClient {
 
     public Answer generate(String system, String user) {
         String key = keys.system2Key();
-        if (key.isBlank()) throw new SystemDownException(SYSTEM2, "no API key — enter it in 🔑 Key Management");
+        if (key.isBlank()) throw new SystemDownException(SYSTEM2, "status.system2.noKey");
         String baseUrl = keys.system2BaseUrl();
 
         List<String> skipped = new ArrayList<>();
@@ -68,13 +68,13 @@ public class SystemTwoClient {
             } catch (RuntimeException e) {
                 int status = statusOf(e);
                 if (status == 401 || status == 403) {
-                    throw new SystemDownException(SYSTEM2, "invalid API key — check 🔑 Key Management");
+                    throw new SystemDownException(SYSTEM2, "status.invalidKey");
                 }
                 skipped.add(model + ": " + reason(e, status));
                 log.info("🧠 {} failed: {} → next model", model, reason(e, status));
             }
         }
-        throw new SystemDownException(SYSTEM2, "every model failed — " + String.join("; ", skipped));
+        throw new SystemDownException(SYSTEM2, "status.system2.allFailed", String.join("; ", skipped));
     }
 
     /** One request to one model. Tests override this with a fake. */

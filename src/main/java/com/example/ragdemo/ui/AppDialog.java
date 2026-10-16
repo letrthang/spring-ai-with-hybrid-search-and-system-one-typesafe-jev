@@ -16,13 +16,13 @@ public class AppDialog extends Dialog {
     public AppDialog(String title, Component... content) {
         setHeaderTitle(title);
         Button fullScreen = new Button("⛶");
-        fullScreen.getElement().setAttribute("aria-label", "Full screen");
-        fullScreen.getElement().setAttribute("title", "Full screen");
+        fullScreen.getElement().setAttribute("aria-label", Tr.t("common.fullScreen"));
+        fullScreen.getElement().setAttribute("title", Tr.t("common.fullScreen"));
         fullScreen.addThemeVariants(ButtonVariant.TERTIARY);
         fullScreen.addClickListener(e -> toggleFullScreen());
         Button close = new Button("✕", e -> close());
-        close.getElement().setAttribute("aria-label", "Close");
-        close.getElement().setAttribute("title", "Close");
+        close.getElement().setAttribute("aria-label", Tr.t("common.close"));
+        close.getElement().setAttribute("title", Tr.t("common.close"));
         close.addThemeVariants(ButtonVariant.TERTIARY);
         getHeader().add(fullScreen, close);
 

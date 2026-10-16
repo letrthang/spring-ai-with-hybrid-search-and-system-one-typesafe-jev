@@ -79,9 +79,10 @@ class RagServiceTest {
         assertThat(a.failed()).isFalse();
         assertThat(a.text()).isEqualTo("Hold RESET for 5 seconds [1].");
         assertThat(a.model()).isEqualTo("google/gemma-4-31b-it:free");
-        assertThat(a.flow()).extracting(FlowHop::label).startsWith("1. question", "2a. BM25 (keywords)",
-                "2b. nearText (meaning)", "two ranked lists", "3. RRF → top 3");
-        assertThat(a.flow()).extracting(FlowHop::label).contains("5. augment", "answer", "7. answer + sources");
+        assertThat(a.flow()).extracting(h -> h.label().key()).startsWith("flow.question", "flow.bm25",
+                "flow.vector", "flow.lists", "flow.rrf");
+        assertThat(a.flow()).extracting(h -> h.label().key()).contains("flow.augment", "flow.answer", "flow.done");
+        assertThat(a.flow().get(4).label().args()).containsExactly("3");
         assertThat(a.flow()).filteredOn(h -> h.to() == FlowRecorder.Actor.SYSTEM1).hasSize(3);
         assertThat(a.flow()).extracting(FlowHop::seq).isSorted();
 
@@ -96,7 +97,7 @@ class RagServiceTest {
         assertThat(prompts.getFirst()).contains("[1] Aerator manual — Reset after a trip", "Query: How do I reset AER-01?")
                 .doesNotContain("Ignore all previous instructions", "chicken rice");
         assertThat(a.trace()).extracting(RagAnswer.TraceLine::step)
-                .containsExactly("🗄️ Weaviate", "⚡ System 1", "🧠 System 2", "⏱️ Total");
+                .containsExactly("trace.step.WEAVIATE", "trace.step.SYSTEM1", "trace.step.SYSTEM2", "trace.step.total");
     }
 
     @Test
@@ -110,30 +111,31 @@ class RagServiceTest {
 
         assertThat(a.failed()).isFalse();
         assertThat(a.text()).isEqualTo(RagService.NOTHING_KEPT);
+        assertThat(a.nothingKept()).isTrue();
         assertThat(prompts).isEmpty();
         assertThat(a.usedCount()).isZero();
     }
 
     @Test
     void weaviateDown_stopsBeforeSystemOneAndTwo() {
-        RagAnswer a = new RagService(retriever(HITS, new SystemDownException(WEAVIATE, "invalid API key")),
+        RagAnswer a = new RagService(retriever(HITS, new SystemDownException(WEAVIATE, "status.invalidKey")),
                 laya(SCORES, null), new SystemOneReranker(), llm()).ask("q");
 
         assertThat(a.failed()).isTrue();
         assertThat(a.failure().service()).isEqualTo(WEAVIATE);
         assertThat(a.text()).isNull();
-        assertThat(a.flow()).last().extracting(FlowHop::label).isEqualTo("⛔ stopped: 🗄️ Weaviate");
+        assertThat(a.flow().getLast().label()).isEqualTo(Msg.of("flow.stopped", "@service.WEAVIATE"));
         assertThat(prompts).isEmpty();
     }
 
     @Test
     void systemOneDown_nothingGoesToSystemTwoUnchecked() {
         RagAnswer a = new RagService(retriever(HITS, null),
-                laya(SCORES, new SystemDownException(SYSTEM1, "Laya is waking up, about 1 minute")),
+                laya(SCORES, new SystemDownException(SYSTEM1, "status.system1.waking")),
                 new SystemOneReranker(), llm()).ask("q");
 
         assertThat(a.failure().service()).isEqualTo(SYSTEM1);
-        assertThat(a.failure().reason()).contains("waking up");
+        assertThat(a.failure().reason().key()).isEqualTo("status.system1.waking");
         assertThat(prompts).isEmpty();
         assertThat(a.sources()).hasSize(3);   // the search results are still shown
     }

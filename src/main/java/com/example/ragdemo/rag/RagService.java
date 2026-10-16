@@ -84,8 +84,8 @@ public class RagService {
     /** The three stages a question goes through, for the live progress chips on the Chat page. */
     public enum Stage { SEARCH, SYSTEM1, SYSTEM2 }
 
-    /** A stage has started; {@code detail} says what it is doing, e.g. "checking 4 passages". */
-    public record Progress(Stage stage, String detail) {
+    /** A stage has started; {@code detail} says what it is doing, e.g. "checking 4 passages" (translated by the UI). */
+    public record Progress(Stage stage, Msg detail) {
     }
 
     public RagAnswer ask(String question) {
@@ -97,60 +97,55 @@ public class RagService {
         FlowRecorder flow = new FlowRecorder();
         List<TraceLine> trace = new ArrayList<>();
         Map<String, Source> sources = new LinkedHashMap<>();   // passage id → what we know about it
-        flow.call(Actor.USER, Actor.APP, "1. question", 0, 0, question);
+        flow.call(Actor.USER, Actor.APP, Msg.of("flow.question"), 0, 0, Msg.raw(question));
         log.info("▶ RAG ask: \"{}\"", FlowRecorder.shorten(question));
         try {
             // ---- 2 + 3. retrieve: BM25 and nearText at the same time, merged by RRF
-            onProgress.accept(new Progress(Stage.SEARCH, "BM25 + vector search, merged by RRF"));
+            onProgress.accept(new Progress(Stage.SEARCH, Msg.of("progress.search")));
             long at = flow.now();
             HybridRetriever.Result found = retriever.search(question, HybridRetriever.Mode.HYBRID, HybridRetriever.TOP_K);
-            flow.call(Actor.APP, Actor.WEAVIATE, "2a. BM25 (keywords)", at, found.bm25Ms(),
-                    "bm25 on " + HybridRetriever.BM25_PROPERTIES + ", top " + HybridRetriever.CANDIDATES);
-            flow.call(Actor.APP, Actor.WEAVIATE, "2b. nearText (meaning)", at, found.vectorMs(),
-                    "vector search, top " + HybridRetriever.CANDIDATES);
-            flow.reply(Actor.WEAVIATE, Actor.APP, "two ranked lists", flow.now(),
-                    found.bm25Count() + " BM25 hits · " + found.vectorCount() + " vector hits");
+            flow.call(Actor.APP, Actor.WEAVIATE, Msg.of("flow.bm25"), at, found.bm25Ms(),
+                    Msg.of("flow.bm25.summary", HybridRetriever.BM25_PROPERTIES, HybridRetriever.CANDIDATES));
+            flow.call(Actor.APP, Actor.WEAVIATE, Msg.of("flow.vector"), at, found.vectorMs(),
+                    Msg.of("flow.vector.summary", HybridRetriever.CANDIDATES));
+            flow.reply(Actor.WEAVIATE, Actor.APP, Msg.of("flow.lists"), flow.now(),
+                    Msg.of("flow.lists.summary", found.bm25Count(), found.vectorCount()));
             List<Document> passages = found.hits().stream().map(HybridRetriever::toDocument).toList();
             passages.forEach(d -> sources.put(d.getId(), source(d, null)));
-            flow.note(Actor.APP, "3. RRF → top " + passages.size(), titles(passages));
+            flow.note(Actor.APP, Msg.of("flow.rrf", passages.size()), Msg.raw(titles(passages)));
             log.info("  [2/6] 🗄️ Weaviate: BM25 {} hits ({} ms) + vector {} hits ({} ms) → RRF top {}: {}",
                     found.bm25Count(), found.bm25Ms(), found.vectorCount(), found.vectorMs(), passages.size(),
                     titles(passages));
-            trace.add(new TraceLine("🗄️ Weaviate", "BM25 " + found.bm25Count() + " hits in " + found.bm25Ms()
-                    + " ms · vector " + found.vectorCount() + " hits in " + found.vectorMs() + " ms · RRF → "
-                    + passages.size() + " passages"));
+            trace.add(new TraceLine("trace.step.WEAVIATE", Msg.of("trace.weaviate", found.bm25Count(), found.bm25Ms(),
+                    found.vectorCount(), found.vectorMs(), passages.size())));
 
             // ---- 4. System 1: score every passage, keep the good ones, rerank
-            onProgress.accept(new Progress(Stage.SYSTEM1, "checking " + passages.size() + " passages"));
+            onProgress.accept(new Progress(Stage.SYSTEM1, Msg.of("progress.system1", passages.size())));
             at = flow.now();
             List<Document> scored = filter.score(question, passages);
             for (int i = 0; i < scored.size(); i++) {
                 Document d = scored.get(i);
                 Map<String, Object> m = d.getMetadata();
                 long ms = m.get(SystemOneFilter.MS) instanceof Number n ? n.longValue() : 0;
-                flow.call(Actor.APP, Actor.SYSTEM1, "4. passage " + (i + 1) + ": relevant? answers? injection?",
-                        at, ms, title(d));
-                flow.reply(Actor.SYSTEM1, Actor.APP, m.get(SystemOneFilter.VERDICT).toString(), at + ms,
-                        String.format(Locale.ROOT, "relevant %.2f · answers %.2f · injection %.2f",
-                                num(m.get(SystemOneFilter.RELEVANT)), num(m.get(SystemOneFilter.ANSWERS)),
-                                num(m.get(SystemOneFilter.INJECTION))));
+                String scores = scores(m);
+                flow.call(Actor.APP, Actor.SYSTEM1, Msg.of("flow.passage", i + 1), at, ms, Msg.raw(title(d)));
+                flow.reply(Actor.SYSTEM1, Actor.APP, Msg.of(SystemOneFilter.verdictKey(m.get(SystemOneFilter.VERDICT))),
+                        at + ms, Msg.of("flow.scores", num2(m.get(SystemOneFilter.RELEVANT)),
+                                num2(m.get(SystemOneFilter.ANSWERS)), num2(m.get(SystemOneFilter.INJECTION))));
                 sources.put(d.getId(), source(d, null));
-                log.debug("        ⚡ {} → {} ({}, {} ms)", title(d), m.get(SystemOneFilter.VERDICT),
-                        String.format(Locale.ROOT, "relevant %.2f · answers %.2f · injection %.2f",
-                                num(m.get(SystemOneFilter.RELEVANT)), num(m.get(SystemOneFilter.ANSWERS)),
-                                num(m.get(SystemOneFilter.INJECTION))), ms);
+                log.debug("        ⚡ {} → {} ({}, {} ms)", title(d), m.get(SystemOneFilter.VERDICT), scores, ms);
             }
             List<Document> kept = scored.stream().filter(SystemOneFilter::kept).toList();
             List<Document> best = reranker.process(new Query(question), kept);
-            flow.note(Actor.APP, "rerank → best " + best.size(), titles(best));
+            flow.note(Actor.APP, Msg.of("flow.rerank", best.size()), Msg.raw(titles(best)));
             log.info("  [4/6] ⚡ System 1: kept {} of {} in {} ms → best {}: {}", kept.size(), scored.size(),
                     flow.now() - at, best.size(), titles(best));
-            trace.add(new TraceLine("⚡ System 1", scored.size() + " calls in parallel, " + (flow.now() - at)
-                    + " ms · kept " + kept.size() + " of " + scored.size() + " · best " + best.size() + " go on"));
+            trace.add(new TraceLine("trace.step.SYSTEM1", Msg.of("trace.system1", scored.size(), flow.now() - at,
+                    kept.size(), scored.size(), best.size())));
 
             if (best.isEmpty()) {
-                flow.reply(Actor.APP, Actor.USER, "no usable passage", flow.now(), "System 2 not called");
-                trace.add(new TraceLine("🧠 System 2", "not called — no passage was kept"));
+                flow.reply(Actor.APP, Actor.USER, Msg.of("flow.noPassage"), flow.now(), Msg.of("flow.noPassage.summary"));
+                trace.add(new TraceLine("trace.step.SYSTEM2", Msg.of("trace.system2.notCalled")));
                 log.info("  ■ no passage kept → System 2 not called ({} ms)", flow.now());
                 return done(question, NOTHING_KEPT, sources, trace, flow, null, null);
             }
@@ -162,22 +157,25 @@ public class RagService {
                     .documentFormatter(RagService::numbered)
                     .build()
                     .augment(new Query(question), best);
-            flow.note(Actor.APP, "5. augment", best.size() + " passages + question → prompt of "
-                    + prompt.text().length() + " characters");
+            flow.note(Actor.APP, Msg.of("flow.augment"), Msg.of("flow.augment.summary", best.size(),
+                    prompt.text().length()));
             log.info("  [5/6] ✍️ augment: {} passages + question → prompt of {} chars", best.size(), prompt.text().length());
             log.debug("        prompt:\n{}", prompt.text());
 
             // ---- 6. System 2 writes the answer
-            onProgress.accept(new Progress(Stage.SYSTEM2, "writing the answer from " + best.size() + " passages"));
+            onProgress.accept(new Progress(Stage.SYSTEM2, Msg.of("progress.system2", best.size())));
             at = flow.now();
             SystemTwoClient.Answer answer = systemTwo.generate(SYSTEM_PROMPT, prompt.text());
-            flow.call(Actor.APP, Actor.SYSTEM2, "6. prompt → " + answer.model(), at, answer.ms(),
-                    answer.skipped().isEmpty() ? "first model answered" : "skipped: " + answer.skipped());
-            flow.reply(Actor.SYSTEM2, Actor.APP, "answer", at + answer.ms(), answer.text());
-            trace.add(new TraceLine("🧠 System 2", answer.model() + " · " + answer.ms() + " ms · tokens "
-                    + tokens(answer.tokensIn()) + " in / " + tokens(answer.tokensOut()) + " out"
-                    + (answer.skipped().isEmpty() ? "" : " · skipped " + answer.skipped())));
-            flow.reply(Actor.APP, Actor.USER, "7. answer + sources", flow.now(), answer.text());
+            flow.call(Actor.APP, Actor.SYSTEM2, Msg.of("flow.prompt", answer.model()), at, answer.ms(),
+                    answer.skipped().isEmpty() ? Msg.of("flow.prompt.first")
+                            : Msg.of("flow.prompt.skipped", String.join("; ", answer.skipped())));
+            flow.reply(Actor.SYSTEM2, Actor.APP, Msg.of("flow.answer"), at + answer.ms(), Msg.raw(answer.text()));
+            trace.add(new TraceLine("trace.step.SYSTEM2", answer.skipped().isEmpty()
+                    ? Msg.of("trace.system2", answer.model(), answer.ms(), tokens(answer.tokensIn()),
+                    tokens(answer.tokensOut()))
+                    : Msg.of("trace.system2.skipped", answer.model(), answer.ms(), tokens(answer.tokensIn()),
+                    tokens(answer.tokensOut()), String.join("; ", answer.skipped()))));
+            flow.reply(Actor.APP, Actor.USER, Msg.of("flow.done"), flow.now(), Msg.raw(answer.text()));
             log.info("  [6/6] 🧠 System 2: {} answered in {} ms (tokens {} in / {} out){}", answer.model(), answer.ms(),
                     tokens(answer.tokensIn()), tokens(answer.tokensOut()),
                     answer.skipped().isEmpty() ? "" : ", skipped " + answer.skipped());
@@ -186,10 +184,9 @@ public class RagService {
 
         } catch (SystemDownException down) {
             // a required service failed: stop here, and show how far the question got
-            flow.note(Actor.APP, "⛔ stopped: " + down.service().label, down.reason());
-            log.warn("⛔ RAG stopped after {} ms — {} is not available: {}", flow.now(), down.service().label,
-                    down.reason());
-            trace.add(new TraceLine("⛔ " + down.service().label, down.reason()));
+            flow.note(Actor.APP, Msg.of("flow.stopped", "@" + down.service().key()), down.reason());
+            log.warn("⛔ RAG stopped after {} ms — {} is not available: {}", flow.now(), down.service(), down.reason());
+            trace.add(new TraceLine("trace.step.stopped." + down.service().name(), down.reason()));
             return done(question, null, sources, trace, flow, null,
                     new RagAnswer.Failure(down.service(), down.reason()));
         }
@@ -199,8 +196,18 @@ public class RagService {
                            FlowRecorder flow, String model, RagAnswer.Failure failure) {
         long total = flow.now();
         List<TraceLine> lines = new ArrayList<>(trace);
-        lines.add(new TraceLine("⏱️ Total", total + " ms"));
+        lines.add(new TraceLine("trace.step.total", Msg.of("trace.total", total)));
         return new RagAnswer(question, text, List.copyOf(sources.values()), lines, flow.hops(), model, total, failure);
+    }
+
+    private static String scores(Map<String, Object> m) {
+        return String.format(Locale.ROOT, "relevant %.2f · answers %.2f · injection %.2f",
+                num(m.get(SystemOneFilter.RELEVANT)), num(m.get(SystemOneFilter.ANSWERS)),
+                num(m.get(SystemOneFilter.INJECTION)));
+    }
+
+    private static String num2(Object o) {
+        return String.format(Locale.ROOT, "%.2f", num(o));
     }
 
     /** The {context} of the prompt: "[1] title\nbody" for each passage. */

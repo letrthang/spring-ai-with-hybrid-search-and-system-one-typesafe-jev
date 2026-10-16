@@ -31,13 +31,8 @@ public final class DataFlowDiagram {
         Div heads = new Div();
         heads.addClassName("rd-flow-heads");
         for (Actor actor : ACTORS) {
-            Span name = new Span(actor.label);
-            Div head = InfoHint.with(name, switch (actor) {
-                case USER, APP -> Hint.RAG;
-                case WEAVIATE -> Hint.WEAVIATE;
-                case SYSTEM1 -> Hint.SYSTEM1;
-                case SYSTEM2 -> Hint.SYSTEM2;
-            });
+            Span name = new Span(actorName(actor));
+            Div head = InfoHint.with(name, InfoHint.forActor(actor));
             head.addClassNames("rd-flow-actor", "justify-center");
             heads.add(head);
         }
@@ -81,7 +76,7 @@ public final class DataFlowDiagram {
         double textLeft = Math.max(0, Math.min(1 - textWidth, left + width / 2 - textWidth / 2));
         Span number = new Span(String.valueOf(hop.seq()));
         number.addClassName("rd-flow-n");
-        Span text = new Span(hop.label());
+        Span text = new Span(Tr.t(hop.label()));
         text.addClassName("rd-flow-text");
         Div label = new Div(number, text);
         label.addClassName("rd-flow-label");
@@ -94,24 +89,28 @@ public final class DataFlowDiagram {
 
         Div line = new Div(arrow, label, meta);
         line.addClassName("rd-flow-row");
-        Paragraph summary = new Paragraph(hop.summary().isBlank() ? "(nothing more to show)" : hop.summary());
+        String summaryText = Tr.t(hop.summary());
+        Paragraph summary = new Paragraph(summaryText.isBlank() ? Tr.t("flow.nothing") : summaryText);
         summary.addClassNames("rd-flow-summary", "m-0");
 
-        Div opened = new Div(summary, InfoHint.chip("About " + hop.to().label, InfoHint.forActor(hop.to())));
+        Div opened = new Div(summary, InfoHint.chip(Tr.t("flow.about", actorName(hop.to())), InfoHint.forActor(hop.to())));
         opened.addClassNames("flex", "flex-col", "items-start", "gap-1", "px-2", "pb-2");
         NativeDetails step = new NativeDetails(line, opened);
         step.addClassName("rd-flow-step");
-        step.getElement().setAttribute("title", hop.from().label + " → " + hop.to().label + ": " + hop.label());
+        step.getElement().setAttribute("title", actorName(hop.from()) + " → " + actorName(hop.to()) + ": " + Tr.t(hop.label()));
         return step;
     }
 
     private static Span legend(List<FlowHop> hops) {
         long calls = hops.stream().filter(h -> h.kind() == Kind.CALL).count();
         long last = hops.stream().mapToLong(h -> h.atMs() + h.ms()).max().orElse(0);
-        Span legend = new Span(hops.size() + " steps · " + calls + " calls · " + last + " ms in total — "
-                + "solid arrow = call, green = reply, grey loop = a step inside the app. Click a row for details.");
+        Span legend = new Span(Tr.t("flow.legend", hops.size(), calls, last));
         legend.addClassNames("rd-muted", "text-xs");
         return legend;
+    }
+
+    static String actorName(Actor actor) {
+        return Tr.t("actor." + actor.name());
     }
 
     private static void place(Div element, double left, double width) {

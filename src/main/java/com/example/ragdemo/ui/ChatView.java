@@ -29,7 +29,7 @@ import com.vaadin.flow.component.masterdetaillayout.MasterDetailLayout;
 import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.data.value.ValueChangeMode;
-import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.HasDynamicTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.shared.Registration;
@@ -55,15 +55,12 @@ import java.util.function.Supplier;
  * </ul>
  */
 @Route("")
-@PageTitle("Chat · RAG demo")
-public class ChatView extends Div {
+public class ChatView extends Div implements HasDynamicTitle {
 
     static final int RECHECK_SECONDS = 30;
     static final int MAX_QUESTION = 2000;
-    static final List<String> EXAMPLES = List.of(
-            "What does PCR do?",
-            "Why does warm water hold less oxygen than cold water?",
-            "What does Newton's second law say?");
+    /** i18n keys of the example questions under the question box. */
+    static final List<String> EXAMPLES = List.of("chat.example.1", "chat.example.2", "chat.example.3");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
             .withZone(ZoneId.systemDefault());
 
@@ -77,7 +74,7 @@ public class ChatView extends Div {
     private final Div messages = new Div();
     private final TextArea question = new TextArea();
     private final Span counter = new Span();
-    private final Button ask = new Button("🔎 Ask");
+    private final Button ask = new Button(Tr.t("chat.ask"));
     private final ProgressBar progress = new ProgressBar();
     private final Map<RagService.Stage, Span> steps = new EnumMap<>(RagService.Stage.class);
     private final Div stepRow = new Div();
@@ -100,11 +97,9 @@ public class ChatView extends Div {
         checks.put(Service.SYSTEM2, systemTwo::check);
         addClassNames("p-4", "flex", "flex-col", "gap-4", "max-w-screen-xl", "box-border");
 
-        Paragraph intro = new Paragraph("Ask a question. Weaviate finds passages (BM25 + vector), ⚡ System 1 keeps "
-                + "only the useful ones, 🧠 System 2 writes the answer. Open 🔀 Data flow under an answer to see "
-                + "every step.");
+        Paragraph intro = new Paragraph(Tr.t("chat.intro"));
         intro.addClassNames("rd-muted", "m-0");
-        add(InfoHint.with(new H2("💬 Chat"), Hint.RAG), intro, statusRow(), banner, conversationCard(), questionCard(), historyCard());
+        add(InfoHint.with(new H2(Tr.t("chat.title")), Hint.RAG), intro, statusRow(), banner, conversationCard(), questionCard(), historyCard());
         banner.addClassNames("rd-warning", "p-3", "flex", "flex-wrap", "gap-2", "items-center");
         banner.setVisible(false);
         applyEnabled();
@@ -124,16 +119,16 @@ public class ChatView extends Div {
                 case SYSTEM2 -> Hint.SYSTEM2;
             }));
         }
-        Span every = new Span("re-checked every " + RECHECK_SECONDS + " s");
+        Span every = new Span(Tr.t("chat.recheck", RECHECK_SECONDS));
         every.addClassNames("rd-muted", "text-xs");
-        row.add(every, new InfoHint(Hint.FAIL_CLOSED, "status"));
+        row.add(every, new InfoHint(Hint.FAIL_CLOSED, Tr.t("chat.statusHint")));
         return row;
     }
 
     private Div conversationCard() {
-        H3 title = new H3("🗨️ Conversation");
+        H3 title = new H3(Tr.t("chat.conversation"));
         title.addClassNames("m-0", "text-base");
-        Button newChat = new Button("＋ New chat", e -> startNewChat());
+        Button newChat = new Button(Tr.t("chat.newChat"), e -> startNewChat());
         newChat.addThemeVariants(ButtonVariant.TERTIARY);
         Div head = new Div(title, newChat);
         head.addClassNames("flex", "justify-between", "items-center");
@@ -145,9 +140,9 @@ public class ChatView extends Div {
     }
 
     private Div questionCard() {
-        H3 title = new H3("💬 Your question");
+        H3 title = new H3(Tr.t("chat.yourQuestion"));
         title.addClassNames("m-0", "text-base");
-        question.setPlaceholder("Ask about biotech or physics, e.g. \"" + EXAMPLES.getFirst() + "\"");
+        question.setPlaceholder(Tr.t("chat.placeholder", Tr.t(EXAMPLES.getFirst())));
         question.setMaxLength(MAX_QUESTION);
         question.setValueChangeMode(ValueChangeMode.EAGER);
         question.addValueChangeListener(e -> {
@@ -163,18 +158,19 @@ public class ChatView extends Div {
 
         ask.addThemeVariants(ButtonVariant.PRIMARY);
         ask.addClickListener(e -> submit());
-        Span tip = new Span("Ctrl + Enter to send");
+        Span tip = new Span(Tr.t("chat.ctrlEnter"));
         tip.addClassNames("rd-muted", "text-xs");
         Div actions = new Div(ask, counter, tip);
         actions.addClassNames("flex", "flex-wrap", "gap-3", "items-center");
 
-        for (String example : EXAMPLES) {
+        for (String key : EXAMPLES) {
+            String example = Tr.t(key);
             Button b = new Button(example, e -> question.setValue(example));
             b.addThemeVariants(ButtonVariant.TERTIARY);
             b.addClassNames("text-sm", "rd-example");
             examples.add(b);
         }
-        Span try_ = new Span("Try:");
+        Span try_ = new Span(Tr.t("chat.try"));
         try_.addClassNames("rd-muted", "text-sm");
         examples.addComponentAsFirst(try_);
         examples.addClassNames("flex", "flex-wrap", "gap-1", "items-center");
@@ -202,14 +198,14 @@ public class ChatView extends Div {
     }
 
     private Div historyCard() {
-        sessions.addColumn(s -> TIME.format(s.getStartedAt())).setHeader(InfoHint.with(new Span("Started"), Hint.HISTORY)).setWidth("12em").setFlexGrow(0);
-        sessions.addColumn(ChatSession::getTitle).setHeader(InfoHint.with(new Span("Title"), Hint.HISTORY)).setFlexGrow(3);
-        sessions.addColumn(ChatSession::getMessageCount).setHeader(InfoHint.with(new Span("Messages"), Hint.HISTORY)).setWidth("7em").setFlexGrow(0);
-        sessions.addColumn(s -> TIME.format(s.getLastMessageAt())).setHeader(InfoHint.with(new Span("Last message"), Hint.HISTORY)).setWidth("11em")
+        sessions.addColumn(s -> TIME.format(s.getStartedAt())).setHeader(InfoHint.with(new Span(Tr.t("history.started")), Hint.HISTORY)).setWidth("12em").setFlexGrow(0);
+        sessions.addColumn(ChatSession::getTitle).setHeader(InfoHint.with(new Span(Tr.t("history.title")), Hint.HISTORY)).setFlexGrow(3);
+        sessions.addColumn(ChatSession::getMessageCount).setHeader(InfoHint.with(new Span(Tr.t("history.messages")), Hint.HISTORY)).setWidth("7em").setFlexGrow(0);
+        sessions.addColumn(s -> TIME.format(s.getLastMessageAt())).setHeader(InfoHint.with(new Span(Tr.t("history.lastMessage")), Hint.HISTORY)).setWidth("11em")
                 .setFlexGrow(0);
         sessions.getColumns().forEach(c -> c.setResizable(true));
         sessions.addThemeVariants(GridVariant.ROW_STRIPES);
-        sessions.setEmptyStateText("No conversations yet.");
+        sessions.setEmptyStateText(Tr.t("history.empty"));
         // lazy: the grid asks for one page at a time (local DB, fast)
         sessions.setItems(query -> history.sessions(query.getOffset(), query.getLimit()).stream(),
                 query -> (int) history.countSessions());
@@ -228,15 +224,15 @@ public class ChatView extends Div {
         historyLayout.addDetailEscapePressListener(e -> sessions.deselectAll());
         historyLayout.setSizeFull();
 
-        Span title = new Span("📂 History");
+        Span title = new Span(Tr.t("history.heading"));
         title.addClassNames("font-semibold");
         sessionCount.addClassNames("rd-status", "rd-status-UNKNOWN", "text-xs");
-        Span hint = new Span("Click selects · click again to close · double-click a row for 🔍 Details…");
+        Span hint = new Span(Tr.t("grid.clickHint"));
         hint.addClassNames("rd-muted", "text-xs", "hidden", "md:inline");
         Button fullScreen = new Button("⛶", e -> toggleFullScreen());
         fullScreen.addThemeVariants(ButtonVariant.TERTIARY);
-        fullScreen.getElement().setAttribute("title", "Full screen (Esc to exit)");
-        fullScreen.getElement().setAttribute("aria-label", "Full screen");
+        fullScreen.getElement().setAttribute("title", Tr.t("common.fullScreenEsc"));
+        fullScreen.getElement().setAttribute("aria-label", Tr.t("common.fullScreen"));
         Div left = new Div(title, new InfoHint(Hint.HISTORY), sessionCount);
         left.addClassNames("flex", "gap-2", "items-center");
         Div right = new Div(hint, fullScreen);
@@ -254,15 +250,15 @@ public class ChatView extends Div {
     }
 
     private DetailCard sessionCard(ChatSession s) {
-        Span when = new Span("🕒 " + TIME.format(s.getStartedAt()) + " · " + s.getMessageCount() + " messages");
+        Span when = new Span(Tr.t("history.when", TIME.format(s.getStartedAt()), s.getMessageCount()));
         when.addClassNames("rd-muted", "text-sm");
         Div questions = new Div();
         questions.addClassNames("flex", "flex-col", "gap-1", "text-sm");
         for (ChatMessage m : history.messages(s.getId())) {
             if (m.getSender() == ChatMessage.Sender.USER) questions.add(new Span("💬 " + m.getText()));
         }
-        Button open = new Button("🔍 Details…", e -> openConversationDialog(s));
-        Button continue_ = new Button("▶ Continue here", e -> loadConversation(s));
+        Button open = new Button(Tr.t("common.details"), e -> openConversationDialog(s));
+        Button continue_ = new Button(Tr.t("history.continue"), e -> loadConversation(s));
         continue_.addThemeVariants(ButtonVariant.PRIMARY);
         Div buttons = new Div(continue_, open);
         buttons.addClassNames("flex", "flex-wrap", "gap-2");
@@ -315,15 +311,15 @@ public class ChatView extends Div {
         banner.removeAll();
         banner.setVisible(!notReady.isEmpty());
         if (notReady.isEmpty()) return;
-        Span lead = new Span("⚠️ Chat is disabled until every service is 🟢:");
+        Span lead = new Span(Tr.t("chat.disabled"));
         lead.addClassName("font-semibold");
         banner.add(lead, new InfoHint(Hint.FAIL_CLOSED));
-        for (ServiceStatus s : notReady) banner.add(new Span(s.service().label + " — " + s.reason() + "."));
-        if (notReady.stream().anyMatch(s -> s.reason().contains("Key Management"))) {
-            banner.add(new RouterLink("🔑 Open Key Management", KeyManagementView.class));
+        for (ServiceStatus s : notReady) banner.add(new Span(Tr.t(s.service().key()) + " — " + Tr.t(s.reason())));
+        if (notReady.stream().anyMatch(s -> s.reason().key().endsWith("noKey") || s.reason().key().endsWith("invalidKey"))) {
+            banner.add(new RouterLink(Tr.t("chat.openKeys"), KeyManagementView.class));
         }
-        if (notReady.stream().anyMatch(s -> s.reason().contains("Search Data"))) {
-            banner.add(new RouterLink("🔎 Open Search Data", SearchDataView.class));
+        if (notReady.stream().anyMatch(s -> s.reason().key().endsWith("empty") || s.reason().key().endsWith("noCollection"))) {
+            banner.add(new RouterLink(Tr.t("chat.openSearch"), SearchDataView.class));
         }
     }
 
@@ -352,7 +348,8 @@ public class ChatView extends Div {
             finishSteps(turn.answer());
             if (turn.answer().failed()) {
                 // the service failed during the question: show it at once; the next check turns it back on
-                show(ServiceStatus.down(turn.answer().failure().service(), turn.answer().failure().reason()));
+                show(new ServiceStatus(turn.answer().failure().service(), ServiceStatus.State.DOWN,
+                        turn.answer().failure().reason()));
             } else {
                 question.clear();
             }
@@ -361,7 +358,7 @@ public class ChatView extends Div {
             refreshHistory();
         }, error -> {
             busy = false;
-            messages.add(AnswerBubble.question("⚠️ Unexpected error: " + error.getMessage()));
+            messages.add(AnswerBubble.question(Tr.t("common.unexpectedError", error.getMessage())));
             applyEnabled();
         });
     }
@@ -373,9 +370,9 @@ public class ChatView extends Div {
 
     private static String label(RagService.Stage stage) {
         return switch (stage) {
-            case SEARCH -> "🗄️ Weaviate · search";
-            case SYSTEM1 -> "⚡ System 1 · check passages";
-            case SYSTEM2 -> "🧠 System 2 · write answer";
+            case SEARCH -> Tr.t("step.SEARCH");
+            case SYSTEM1 -> Tr.t("step.SYSTEM1");
+            case SYSTEM2 -> Tr.t("step.SYSTEM2");
         };
     }
 
@@ -388,7 +385,7 @@ public class ChatView extends Div {
         steps.forEach((stage, chip) -> {
             int c = stage.compareTo(p.stage());
             if (c < 0) setStep(chip, "rd-step-done", "✅ " + label(stage));
-            else if (c == 0) setStep(chip, "rd-step-active", "⏳ " + label(stage) + " — " + p.detail() + "…");
+            else if (c == 0) setStep(chip, "rd-step-active", "⏳ " + label(stage) + " — " + Tr.t(p.detail()) + "…");
             else setStep(chip, "rd-step-waiting", "⬜ " + label(stage));
         });
     }
@@ -404,7 +401,7 @@ public class ChatView extends Div {
         steps.forEach((stage, chip) -> {
             if (failed != null && stage == failed) setStep(chip, "rd-step-failed", "⛔ " + label(stage));
             else if (failed != null && stage.compareTo(failed) > 0) setStep(chip, "rd-step-waiting", "⬜ " + label(stage));
-            else if (noSystemTwo && stage == RagService.Stage.SYSTEM2) setStep(chip, "rd-step-waiting", "➖ " + label(stage) + " — not needed");
+            else if (noSystemTwo && stage == RagService.Stage.SYSTEM2) setStep(chip, "rd-step-waiting", "➖ " + label(stage) + " — " + Tr.t("step.notNeeded"));
             else setStep(chip, "rd-step-done", "✅ " + label(stage));
         });
     }
@@ -450,14 +447,14 @@ public class ChatView extends Div {
 
     private void showEmptyConversation() {
         messages.removeAll();
-        Span empty = new Span("No messages yet. Ask a question below, or pick a conversation in 📂 History.");
+        Span empty = new Span(Tr.t("chat.empty"));
         empty.addClassNames("rd-muted", "text-sm");
         messages.add(empty);
     }
 
     private void refreshHistory() {
         sessions.getDataProvider().refreshAll();
-        sessionCount.setText("Conversations: " + history.countSessions());
+        sessionCount.setText(Tr.t("history.count", history.countSessions()));
     }
 
     private void updateCounter() {
@@ -466,6 +463,11 @@ public class ChatView extends Div {
 
     private void scrollToEnd() {
         messages.getElement().executeJs("requestAnimationFrame(() => this.scrollTop = this.scrollHeight)");
+    }
+
+    @Override
+    public String getPageTitle() {
+        return Tr.t("page.chat");
     }
 
     private void toggleFullScreen() {

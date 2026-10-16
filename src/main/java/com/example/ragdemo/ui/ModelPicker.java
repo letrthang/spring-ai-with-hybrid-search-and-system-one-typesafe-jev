@@ -23,7 +23,7 @@ import java.util.Map;
 public class ModelPicker extends Div {
 
     private final OpenRouterModels source;
-    private final ComboBox<ModelInfo> combo = new ComboBox<>("➕ Add a model");
+    private final ComboBox<ModelInfo> combo = new ComboBox<>(Tr.t("models.add"));
     private final Div chosenList = new Div();
     private final List<String> chosen = new ArrayList<>();
     private final Map<String, ModelInfo> known = new HashMap<>();
@@ -35,7 +35,7 @@ public class ModelPicker extends Div {
         chosen.addAll(initial);
 
         combo.setWidthFull();
-        combo.setPlaceholder("⏳ Loading OpenRouter models…");
+        combo.setPlaceholder(Tr.t("models.loading"));
         combo.setItemLabelGenerator(ModelInfo::name);
         combo.setRenderer(new ComponentRenderer<>(this::item));
         combo.getStyle().set("--vaadin-combo-box-overlay-width", "min(520px, 92vw)");
@@ -46,7 +46,7 @@ public class ModelPicker extends Div {
             showChosen();
         });
 
-        Span label = new Span("Models, tried in order (the first that answers wins)");
+        Span label = new Span(Tr.t("models.label"));
         label.addClassNames("text-sm", "font-semibold");
         chosenList.addClassNames("flex", "flex-col", "gap-1");
         add(InfoHint.with(label, Hint.MODELS), chosenList, combo);
@@ -81,9 +81,9 @@ public class ModelPicker extends Div {
             // filter on name and id, so "gemma" or "nvidia/" both work
             combo.setItems((m, filter) -> (m.name() + " " + m.id()).toLowerCase(Locale.ROOT)
                     .contains(filter.toLowerCase(Locale.ROOT)), models);
-            combo.setPlaceholder("Search " + models.size() + " models (" + free + " free)…");
+            combo.setPlaceholder(Tr.t("models.search", models.size(), free));
             showChosen();
-        }, error -> combo.setPlaceholder("⚠️ Model list unavailable: " + error.getMessage()));
+        }, error -> combo.setPlaceholder(Tr.t("models.unavailable", error.getMessage())));
     }
 
     /** One dropdown item: an optional group header, the name, the id, and the details footer. */
@@ -91,7 +91,7 @@ public class ModelPicker extends Div {
         Div item = new Div();
         item.addClassNames("flex", "flex-col", "py-1", "min-w-0");
         if (m.id().equals(firstFree) || m.id().equals(firstPaid)) {
-            Span group = new Span(m.free() ? "🆓 Free models" : "💲 Paid models — need credit on your OpenRouter key");
+            Span group = new Span(Tr.t(m.free() ? "models.group.free" : "models.group.paid"));
             group.addClassName("rd-model-group");
             item.add(group);
         }
@@ -99,7 +99,7 @@ public class ModelPicker extends Div {
         name.addClassNames("font-semibold", "text-sm", "break-words");
         Span id = new Span(m.id());
         id.addClassNames("rd-muted", "text-xs", "break-all");
-        Span details = new Span(m.details());
+        Span details = new Span(details(m));
         details.addClassNames("rd-model-details", "text-xs");
         item.add(name, id, details);
         return item;
@@ -109,7 +109,7 @@ public class ModelPicker extends Div {
     private void showChosen() {
         chosenList.removeAll();
         if (chosen.isEmpty()) {
-            Span none = new Span("No model chosen — add at least one.");
+            Span none = new Span(Tr.t("models.none"));
             none.addClassNames("rd-muted", "text-sm");
             chosenList.add(none);
         }
@@ -118,15 +118,15 @@ public class ModelPicker extends Div {
             ModelInfo info = known.get(id);
             Span text = new Span((i + 1) + ". " + (info == null ? id : info.name()));
             text.addClassNames("text-sm", "font-semibold", "break-words");
-            Span sub = new Span(info == null ? id : id + " · " + info.details());
+            Span sub = new Span(info == null ? id : id + " · " + details(info));
             sub.addClassNames("rd-muted", "text-xs", "break-all");
             Div label = new Div(text, sub);
             label.addClassNames("flex", "flex-col", "min-w-0", "grow");
             int index = i;
             Div buttons = new Div(
-                    small("↑", "Move up", index > 0, () -> move(index, -1)),
-                    small("↓", "Move down", index < chosen.size() - 1, () -> move(index, 1)),
-                    small("✕", "Remove", true, () -> {
+                    small("↑", Tr.t("models.up"), index > 0, () -> move(index, -1)),
+                    small("↓", Tr.t("models.down"), index < chosen.size() - 1, () -> move(index, 1)),
+                    small("✕", Tr.t("models.remove"), true, () -> {
                         chosen.remove(index);
                         showChosen();
                     }));
@@ -136,6 +136,14 @@ public class ModelPicker extends Div {
             if (info != null && !info.free()) row.addClassName("rd-model-paid");
             chosenList.add(row);
         }
+    }
+
+    /** The footer line of a model, e.g. "🆓 Free · 256K context · 🛠 tools", in the page's language. */
+    public static String details(ModelInfo m) {
+        String price = m.free() ? Tr.t("models.free")
+                : Tr.t("models.price", OpenRouterModels.money(m.promptPrice()), OpenRouterModels.money(m.completionPrice()));
+        return price + (m.context() == null ? "" : " · " + Tr.t("models.context", OpenRouterModels.shortNumber(m.context())))
+                + (m.tools() ? " · " + Tr.t("models.tools") : "");
     }
 
     private void move(int index, int by) {

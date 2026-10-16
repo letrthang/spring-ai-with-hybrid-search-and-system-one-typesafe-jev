@@ -25,23 +25,23 @@ public class SystemTwoHealth {
 
     public ServiceStatus check() {
         if (keys.system2Key().isBlank()) {
-            return ServiceStatus.down(SYSTEM2, "no API key — enter it in 🔑 Key Management");
+            return ServiceStatus.down(SYSTEM2, "status.system2.noKey");
         }
         String base = keys.system2BaseUrl();
         String path = base.contains("openrouter.ai") ? "/key" : "/models";
         try {
             HttpResponse<String> response = Http.get(base + path, keys.system2Key(), Duration.ofSeconds(15));
             return switch (response.statusCode()) {
-                case 200 -> ServiceStatus.ready(SYSTEM2, "key OK · " + keys.system2Models().getFirst());
-                case 401, 403 -> ServiceStatus.down(SYSTEM2, "invalid API key — check 🔑 Key Management");
-                case 429 -> ServiceStatus.waiting(SYSTEM2, "rate limit reached, try again in a minute");
-                default -> ServiceStatus.down(SYSTEM2, "answered HTTP " + response.statusCode());
+                case 200 -> ServiceStatus.ready(SYSTEM2, "status.system2.ready", keys.system2Models().getFirst());
+                case 401, 403 -> ServiceStatus.down(SYSTEM2, "status.invalidKey");
+                case 429 -> ServiceStatus.waiting(SYSTEM2, "status.system2.rateLimit");
+                default -> ServiceStatus.down(SYSTEM2, "status.http", response.statusCode());
             };
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return ServiceStatus.down(SYSTEM2, "check interrupted");
+            return ServiceStatus.down(SYSTEM2, "status.interrupted");
         } catch (Exception e) {
-            return ServiceStatus.down(SYSTEM2, "unreachable (" + Http.describe(e) + ")");
+            return ServiceStatus.down(SYSTEM2, "status.unreachable", Http.describe(e));
         }
     }
 }
