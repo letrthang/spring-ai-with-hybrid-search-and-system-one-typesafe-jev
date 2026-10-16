@@ -5,6 +5,7 @@ import io.weaviate.client6.v1.api.collections.CollectionConfig;
 import io.weaviate.client6.v1.api.collections.Property;
 import io.weaviate.client6.v1.api.collections.Tokenization;
 import io.weaviate.client6.v1.api.collections.VectorConfig;
+import io.weaviate.client6.v1.api.collections.vectorindex.HFresh;
 
 import java.io.IOException;
 import java.util.Map;
@@ -15,7 +16,7 @@ import java.util.Map;
  * <ul>
  *   <li>{@code title}, {@code body}: searchable words → the <b>BM25</b> keyword index.</li>
  *   <li>A vector made by Weaviate's own vectorizer ({@code text2vec-weaviate}) from title + body → <b>nearText</b>.
- *       No embedding key or model on our side.</li>
+ *       No embedding key or model on our side. Index type HFresh (what Weaviate Cloud requires).</li>
  *   <li>{@code source} (file name) and {@code chunkNo}: where the passage comes from.</li>
  * </ul>
  */
@@ -27,7 +28,10 @@ public final class DemoDocCollection {
     }
 
     public static CollectionConfig definition() {
-        return definition(VectorConfig.text2vecWeaviate(v -> v.sourceProperties("title", "body")));
+        // Weaviate Cloud's newer clusters accept only the HFresh vector index (HTTP 422 "hnsw is not allowed"),
+        // and the client still defaults to HNSW — so the index type is set explicitly.
+        return definition(VectorConfig.text2vecWeaviate(v -> v.sourceProperties("title", "body")
+                .vectorIndex(HFresh.of())));
     }
 
     /** Tests pass another vectorizer (a local Weaviate has no access to Weaviate Cloud's embeddings). */

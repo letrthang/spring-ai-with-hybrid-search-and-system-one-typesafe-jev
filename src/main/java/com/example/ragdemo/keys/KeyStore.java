@@ -27,10 +27,13 @@ public class KeyStore {
 
     // ---- defaults: everything except the two keys works out of the box
     public static final String DEFAULT_SYSTEM2_BASE_URL = "https://openrouter.ai/api/v1";
-    /** Free OpenRouter models, tried in this order (the first that answers wins). */
+    /**
+     * Free OpenRouter models, tried in this order (the first that answers wins). Nemotron first: in the live check
+     * (2026-10-16) the free Gemma was busy (429) on every call.
+     */
     public static final List<String> DEFAULT_SYSTEM2_MODELS = List.of(
-            "google/gemma-4-31b-it:free",
             "nvidia/nemotron-3-super-120b-a12b:free",
+            "google/gemma-4-31b-it:free",
             "google/gemma-4-26b-a4b-it:free");
     /** The public Laya Space. With no System 1 key the app calls its keyless route /demo/systemone. */
     public static final String DEFAULT_SYSTEM1_URL = "https://letrthang-aimtas-system-one-laya-slm.hf.space";
