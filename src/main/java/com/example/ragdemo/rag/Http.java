@@ -7,7 +7,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
-/** The one JDK HttpClient for our plain HTTP calls (health checks, Laya). Never follows redirects. */
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
+
+/** The one JDK HttpClient for our plain HTTP calls (health checks, Laya via RestClient). Never follows redirects. */
 public final class Http {
 
     public static final HttpClient CLIENT = HttpClient.newBuilder()
@@ -16,6 +19,25 @@ public final class Http {
             .build();
 
     private Http() {
+    }
+
+    /**
+     * A Spring {@link RestClient} on the one shared JDK {@link #CLIENT} (one connection pool for the whole app), with a
+     * read timeout. Calls block — they run on virtual threads, so many can wait at the same time for free.
+     */
+    public static RestClient restClient(Duration readTimeout) {
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(CLIENT);
+        factory.setReadTimeout(readTimeout);
+        return RestClient.builder().requestFactory(factory).build();
+    }
+
+    /** Status and body of an answer — any status, no exception for 4xx / 5xx (the caller decides what they mean). */
+    public record Reply(int status, String body) {
+
+        public static Reply of(org.springframework.http.client.ClientHttpResponse response) throws IOException {
+            return new Reply(response.getStatusCode().value(),
+                    new String(response.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+        }
     }
 
     /** GET with an optional bearer key. Throws on network errors and timeouts. */

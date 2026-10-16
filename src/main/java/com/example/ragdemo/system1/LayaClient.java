@@ -5,13 +5,13 @@ import org.slf4j.LoggerFactory;
 import com.example.ragdemo.keys.KeyStore;
 import com.example.ragdemo.rag.Http;
 import com.example.ragdemo.rag.SystemDownException;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.net.URI;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -50,6 +50,8 @@ public class LayaClient {
     }
 
     private final KeyStore keys;
+    /** Spring's RestClient on the shared JDK HttpClient; the 3–4 calls of a question run on parallel virtual threads. */
+    private final RestClient rest = Http.restClient(TIMEOUT);
 
     public LayaClient(KeyStore keys) {
         this.keys = keys;
@@ -60,27 +62,28 @@ public class LayaClient {
         String url = keys.system1Url() + (key.isBlank() ? "/demo/systemone" : "/v1/systemone");
         String body = requestBody(question, passage);
         long t0 = System.currentTimeMillis();
-        HttpResponse<String> response;
+        Http.Reply response;
         try {
-            HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url)).timeout(TIMEOUT)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
-            if (!key.isBlank()) request.header("Authorization", "Bearer " + key);
-            response = Http.CLIENT.send(request.build(), HttpResponse.BodyHandlers.ofString());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new SystemDownException(SYSTEM1, "status.interrupted");
-        } catch (Exception e) {
-            throw new SystemDownException(SYSTEM1, "status.unreachable", Http.describe(e));
+            response = rest.post().uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .headers(h -> {
+                        if (!key.isBlank()) h.setBearerAuth(key);
+                    })
+                    .body(body)
+                    .exchange((request, reply) -> Http.Reply.of(reply));   // every status comes back; mapped below
+        } catch (RestClientException e) {
+            if (Thread.currentThread().isInterrupted()) throw new SystemDownException(SYSTEM1, "status.interrupted");
+            throw new SystemDownException(SYSTEM1, "status.unreachable",
+                    Http.describe(e.getCause() != null ? e.getCause() : e));
         }
         long ms = System.currentTimeMillis() - t0;
-        log.debug("⚡ Laya POST {} → HTTP {} in {} ms ({} bytes sent)", url, response.statusCode(), ms, body.length());
-        return switch (response.statusCode()) {
+        log.debug("⚡ Laya POST {} → HTTP {} in {} ms ({} bytes sent)", url, response.status(), ms, body.length());
+        return switch (response.status()) {
             case 200 -> parse(response.body(), ms);
             case 429 -> throw new SystemDownException(SYSTEM1, "status.system1.busy");
             case 503 -> throw new SystemDownException(SYSTEM1, "status.system1.waking");
             case 401, 403 -> throw new SystemDownException(SYSTEM1, "status.invalidKey");
-            default -> throw new SystemDownException(SYSTEM1, "status.http", response.statusCode());
+            default -> throw new SystemDownException(SYSTEM1, "status.http", response.status());
         };
     }
 

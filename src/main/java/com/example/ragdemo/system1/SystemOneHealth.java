@@ -4,8 +4,9 @@ import com.example.ragdemo.keys.KeyStore;
 import com.example.ragdemo.rag.Http;
 import com.example.ragdemo.rag.ServiceStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
-import java.net.http.HttpResponse;
 import java.time.Duration;
 
 import static com.example.ragdemo.rag.ServiceStatus.Service.SYSTEM1;
@@ -18,6 +19,7 @@ import static com.example.ragdemo.rag.ServiceStatus.Service.SYSTEM1;
 public class SystemOneHealth {
 
     private final KeyStore keys;
+    private final RestClient rest = Http.restClient(Duration.ofSeconds(15));
 
     public SystemOneHealth(KeyStore keys) {
         this.keys = keys;
@@ -25,18 +27,19 @@ public class SystemOneHealth {
 
     public ServiceStatus check() {
         try {
-            HttpResponse<String> response = Http.get(keys.system1Url() + "/health", null, Duration.ofSeconds(15));
-            if (response.statusCode() == 200 && response.body().contains("\"ok\"")) {
+            Http.Reply response = rest.get().uri(keys.system1Url() + "/health")
+                    .exchange((request, reply) -> Http.Reply.of(reply));
+            if (response.status() == 200 && response.body().contains("\"ok\"")) {
                 return ServiceStatus.ready(SYSTEM1, "status.system1.ready");
             }
-            if (response.statusCode() == 503 || response.statusCode() == 200) {
+            if (response.status() == 503 || response.status() == 200) {
                 return ServiceStatus.waiting(SYSTEM1, "status.system1.waking");
             }
-            return ServiceStatus.down(SYSTEM1, "status.http", response.statusCode());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return ServiceStatus.down(SYSTEM1, "status.interrupted");
-        } catch (Exception e) {
+            return ServiceStatus.down(SYSTEM1, "status.http", response.status());
+        } catch (RestClientException e) {
+            if (Thread.currentThread().isInterrupted()) return ServiceStatus.down(SYSTEM1, "status.interrupted");
+            return ServiceStatus.down(SYSTEM1, "status.unreachable", Http.describe(e.getCause() != null ? e.getCause() : e));
+        } catch (RuntimeException e) {
             return ServiceStatus.down(SYSTEM1, "status.unreachable", Http.describe(e));
         }
     }
