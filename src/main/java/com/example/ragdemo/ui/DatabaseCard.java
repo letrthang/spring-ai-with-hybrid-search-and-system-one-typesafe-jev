@@ -5,6 +5,8 @@ import com.example.ragdemo.db.DatabaseBrowser.Table;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.HasSize;
 import com.vaadin.flow.component.HasValue;
+import com.vaadin.flow.component.Key;
+import com.vaadin.flow.component.Shortcuts;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
@@ -69,15 +71,32 @@ public class DatabaseCard extends Div {
         grid.addThemeVariants(GridVariant.ROW_STRIPES);
         grid.setEmptyStateText(Tr.t("db.empty"));
         grid.setHeight("360px");
+        grid.addClassName("rd-db-grid");
         grid.addItemDoubleClickListener(e -> openRow(e.getItem()));
         GridContextMenu<Map<String, Object>> menu = grid.addContextMenu();
         menu.setDynamicContentHandler(row -> row != null);
         menu.addItem(Tr.t("common.details"), e -> e.getItem().ifPresent(this::openRow));
 
-        add(InfoHint.with(title, Hint.DATABASE), lead, bar, sql, grid);
+        // ⛶ full screen (Esc or ⛶ again to leave), like the Passages grid
+        Button fullScreen = new Button("⛶", e -> toggleFullScreen());
+        fullScreen.addThemeVariants(ButtonVariant.TERTIARY);
+        fullScreen.getElement().setAttribute("title", Tr.t("common.fullScreenEsc"));
+        fullScreen.getElement().setAttribute("aria-label", Tr.t("common.fullScreen"));
+        Div head = new Div(InfoHint.with(title, Hint.DATABASE), fullScreen);
+        head.addClassNames("flex", "justify-between", "items-center");
+        Shortcuts.addShortcutListener(this, () -> {
+            if (hasClassName("rd-fullscreen")) toggleFullScreen();
+        }, Key.ESCAPE).listenOn(this);
+
+        add(head, lead, bar, sql, grid);
         addAttachListener(e -> {
             if (e.isInitialAttach()) loadTables();
         });
+    }
+
+    private void toggleFullScreen() {
+        if (hasClassName("rd-fullscreen")) removeClassName("rd-fullscreen");
+        else addClassName("rd-fullscreen");
     }
 
     /** The tables with their row counts (background), then the first one is shown. */
