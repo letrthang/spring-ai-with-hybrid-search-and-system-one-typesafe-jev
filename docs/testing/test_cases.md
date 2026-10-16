@@ -243,11 +243,12 @@ text readable (AA contrast).
 
 ### TC-33 · A verified answer is learned
 1. Ask **What does a RAS system do?** 2. Look at the chip under the answer, the 🧠 Learn step, 🔬 Trace and 🔀 Data flow.
-3. 🔎 Search Data → 🧠 Learned answers → 🔄.
+3. 🔎 Search Data → 🧠 Learned answers → 🔄. 4. Press ⛶, then Esc (and ⛶ again).
 
 **Expected:** "🧠 Learned ✅ — ⚡ answers 0.9x · grounded 0.8x · injection 0.0x"; the 🧠 Learn chip ✅; Trace line
 "🧠 Learn — saved…"; Data flow hops "7. ⚡ verify the answer" → "8. 🧠 learn"; the question appears in 🧠 Learned answers (a `kind = learned` object in DemoDoc, never in the Passages grid);
-the 🧭 diagram's save-back line shows the new count.
+the 🧭 diagram's save-back line shows the new count; ⛶ fills the window with the card and its grid grows with it,
+Esc or ⛶ brings it back.
 
 ### TC-34 · A similar question reuses it
 1. Ask **what does a RAS system do** (same meaning, other words / case). 2. Look at the chip, steps and Trace.
