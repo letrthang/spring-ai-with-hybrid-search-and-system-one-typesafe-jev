@@ -12,6 +12,7 @@ import com.vaadin.flow.component.dialog.Dialog;
 public class AppDialog extends Dialog {
 
     private boolean full;
+    private String normalHeight;
 
     public AppDialog(String title, Component... content) {
         setHeaderTitle(title);
@@ -33,10 +34,19 @@ public class AppDialog extends Dialog {
         setDraggable(true);
     }
 
+    /**
+     * A fixed height for content that arrives later (read in the background): the dialog opens at its final size
+     * and the content scrolls inside, instead of the dialog growing and jumping when the data lands.
+     */
+    public void setFixedHeight(String height) {
+        normalHeight = height;
+        if (!full) setHeight(height);
+    }
+
     private void toggleFullScreen() {
         full = !full;
         setWidth(full ? "100vw" : "min(900px, 100vw)");
-        setHeight(full ? "100vh" : null);
+        setHeight(full ? "100vh" : normalHeight);
         setMaxHeight(full ? "100vh" : "90vh");
     }
 }

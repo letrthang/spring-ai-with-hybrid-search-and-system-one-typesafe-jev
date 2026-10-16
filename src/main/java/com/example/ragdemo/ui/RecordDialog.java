@@ -52,6 +52,7 @@ public class RecordDialog extends AppDialog {
 
     public RecordDialog(Hit hit, WeaviateRecords records, Component passage) {
         super("🔍 " + hit.title());
+        setFixedHeight("min(85vh, 860px)");   // the record is read in the background: never resize when it lands
         Span loading = new Span(Tr.t("record.reading"));
         loading.addClassNames("rd-muted", "text-sm");
         Div body = new Div(passage, loading);
@@ -96,6 +97,39 @@ public class RecordDialog extends AppDialog {
         Div table = table(rows);
         table.getChildren().findFirst().ifPresent(header -> header.addClassName("font-semibold"));
         return section(Tr.t("record.structure", DemoDocCollection.NAME), Hint.SCHEMA, table);
+    }
+
+    // ------------------------------------------------------------------ 🧱 schema of one record (the detail card)
+
+    /**
+     * For the detail card next to the grid: every DemoDoc field of this record — its name, type, how Weaviate indexes
+     * it, and this record's value. Built from the search hit, so it needs no extra call to Weaviate.
+     */
+    static Div schemaOf(Hit hit) {
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("title", hit.title());
+        values.put("body", shorten(hit.body(), 90));
+        values.put("source", hit.source());
+        values.put("chunkNo", hit.chunkNo() == null ? "—" : String.valueOf(hit.chunkNo()));
+        values.put("(vector)", Tr.t("record.vectorInCard"));
+        Div rows = new Div();
+        rows.addClassNames("flex", "flex-col", "gap-2");
+        for (Row f : SCHEMA) {
+            Span type = new Span(f.value() + " · " + Tr.t("record.index." + f.label()));
+            type.addClassNames("rd-muted", "text-xs");
+            Div line = field(f.label(), values.get(f.label()));
+            rows.add(new Div(InfoHint.with(line, f.hint()), type));
+        }
+        H3 heading = new H3(Tr.t("record.structure", DemoDocCollection.NAME));
+        heading.addClassNames("m-0", "text-sm");
+        Div box = new Div(InfoHint.with(heading, Hint.SCHEMA), rows);
+        box.addClassNames("rd-wv", "rd-record-section", "p-3");
+        return box;
+    }
+
+    private static String shorten(String text, int max) {
+        if (text == null) return "";
+        return text.length() <= max ? text : text.substring(0, max).strip() + "…";
     }
 
     // ------------------------------------------------------------------ 🗂️ the object, as Weaviate Explorer shows it
