@@ -7,7 +7,7 @@ from memory only, so the answer can cite its sources and is less likely to be ma
 
 ## Hybrid search
 This demo searches Weaviate in two ways. BM25 ranks passages that share rare words with the question, such as the
-code AER-01. Vector search ranks passages with a similar meaning, even when they use other words. Reciprocal Rank
+name Cas9 or the code NGG. Vector search ranks passages with a similar meaning, even when they use other words. Reciprocal Rank
 Fusion merges both rankings: each passage gets 1 / (60 + rank) from every list it is in.
 
 ## System 1 and System 2

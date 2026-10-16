@@ -7,6 +7,7 @@ import com.example.ragdemo.weaviate.HybridRetriever.Hit;
 import com.example.ragdemo.weaviate.HybridRetriever.Mode;
 import com.example.ragdemo.weaviate.SampleDataLoader;
 import com.example.ragdemo.weaviate.WeaviateHealth;
+import com.example.ragdemo.weaviate.WeaviateRecords;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.Shortcuts;
 import com.vaadin.flow.component.button.Button;
@@ -16,7 +17,6 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
-import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.masterdetaillayout.MasterDetailLayout;
@@ -48,6 +48,10 @@ public class SearchDataView extends Div {
     private final HybridRetriever retriever;
     private final SampleDataLoader loader;
     private final WeaviateHealth health;
+    private final WeaviateRecords records;
+    private Grid.Column<Hit> bm25Column;
+    private Grid.Column<Hit> vectorColumn;
+    private Grid.Column<Hit> rrfColumn;
 
     private final TextField query = new TextField();
     private final RadioButtonGroup<Mode> mode = new RadioButtonGroup<>();
@@ -64,14 +68,16 @@ public class SearchDataView extends Div {
     private ServiceStatus status;
     private boolean busy;
 
-    public SearchDataView(HybridRetriever retriever, SampleDataLoader loader, WeaviateHealth health) {
+    public SearchDataView(HybridRetriever retriever, SampleDataLoader loader, WeaviateHealth health,
+                          WeaviateRecords records) {
         this.retriever = retriever;
         this.loader = loader;
         this.health = health;
+        this.records = records;
         addClassNames("p-4", "flex", "flex-col", "gap-3", "h-full", "box-border");
 
         Paragraph intro = new Paragraph("Search the Weaviate collection by keywords (BM25), by meaning (vector) or "
-                + "both merged with RRF (hybrid). Try \"reset AER-01\" and \"fish breathing at the top\" in each mode.");
+                + "both merged with RRF (hybrid). Try \"Newton's second law\" and \"why does warm water hold less oxygen\" in each mode.");
         intro.addClassNames("rd-muted", "m-0");
         warning.addClassNames("rd-warning", "m-0", "p-3");
         warning.setVisible(false);
@@ -129,11 +135,13 @@ public class SearchDataView extends Div {
                 .setTextAlign(ColumnTextAlign.END);
         grid.addColumn(Hit::title).setHeader("Title").setFlexGrow(4);
         grid.addColumn(Hit::source).setHeader("Source").setFlexGrow(2);
-        grid.addColumn(h -> rank(h.bm25Rank(), h.bm25Score(), "%.2f")).setHeader("BM25 rank · score").setFlexGrow(1);
-        grid.addColumn(h -> rank(h.vectorRank(), h.vectorDistance(), "%.3f")).setHeader("Vector rank · distance")
+        bm25Column = grid.addColumn(h -> rank(h.bm25Rank(), h.bm25Score(), "%.2f")).setHeader("BM25 rank · score")
                 .setFlexGrow(1);
-        grid.addColumn(h -> h.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f", h.rrfScore()))
+        vectorColumn = grid.addColumn(h -> rank(h.vectorRank(), h.vectorDistance(), "%.3f"))
+                .setHeader("Vector rank · distance").setFlexGrow(1);
+        rrfColumn = grid.addColumn(h -> h.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f", h.rrfScore()))
                 .setHeader("RRF score").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
+        showScoreColumns(null);
         grid.getColumns().forEach(c -> c.setResizable(true));
         grid.addThemeVariants(GridVariant.ROW_STRIPES);
         grid.setEmptyStateText("No passages. Load the sample data, or try another query.");
@@ -141,10 +149,11 @@ public class SearchDataView extends Div {
 
         // single click selects → detail card; clicking the selected row again deselects → card closes
         grid.asSingleSelect().addValueChangeListener(e -> masterDetail.setDetail(
-                e.getValue() == null ? null : detailCard(e.getValue())));
+                e.getValue() == null ? null : new DetailCard("📄 " + e.getValue().title(), grid::deselectAll,
+                        detailBody(e.getValue()))));
         grid.addItemDoubleClickListener(e -> {
             grid.select(e.getItem());
-            new AppDialog("🔍 " + e.getItem().title(), detailCard(e.getItem())).open();
+            new RecordDialog(e.getItem(), records, detailBody(e.getItem())).open();
         });
 
         masterDetail.setMaster(grid);
@@ -171,10 +180,8 @@ public class SearchDataView extends Div {
         return gridCard;
     }
 
-    /** The detail card: the passage, where it comes from, and how each search ranked it. */
-    static Div detailCard(Hit hit) {
-        H3 title = new H3(hit.title());
-        title.addClassNames("m-0", "text-base");
+    /** What the detail card shows: where the passage comes from, how each search ranked it, and its text. */
+    static Div detailBody(Hit hit) {
         Span source = new Span("📄 " + hit.source() + (hit.chunkNo() == null ? "" : " · passage " + hit.chunkNo()));
         source.addClassNames("rd-muted", "text-sm");
         Div chips = new Div(
@@ -184,9 +191,9 @@ public class SearchDataView extends Div {
         chips.addClassNames("flex", "flex-wrap", "gap-2");
         Paragraph body = new Paragraph(hit.body());
         body.addClassNames("m-0", "whitespace-pre-line");
-        Div card = new Div(title, source, chips, body);
-        card.addClassNames("p-4", "flex", "flex-col", "gap-3");
-        return card;
+        Div content = new Div(source, chips, body);
+        content.addClassNames("flex", "flex-col", "gap-3");
+        return content;
     }
 
     private static Span chip(String text) {
@@ -249,9 +256,20 @@ public class SearchDataView extends Div {
         }, shown -> {
             items = shown.hits;
             grid.setItems(items);
+            showScoreColumns(text.isEmpty() ? null : m);
             resultInfo.setText(shown.info);
             setBusy(false, null);
         }, this::failed);
+    }
+
+    /**
+     * Only the columns the mode fills: BM25 → BM25 rank; Vector → vector rank; Hybrid → both + RRF.
+     * Listing all passages (no query) has no ranks at all.
+     */
+    private void showScoreColumns(Mode m) {
+        bm25Column.setVisible(m == Mode.BM25 || m == Mode.HYBRID);
+        vectorColumn.setVisible(m == Mode.VECTOR || m == Mode.HYBRID);
+        rrfColumn.setVisible(m == Mode.HYBRID);
     }
 
     private static String describe(HybridRetriever.Result r, Mode m) {

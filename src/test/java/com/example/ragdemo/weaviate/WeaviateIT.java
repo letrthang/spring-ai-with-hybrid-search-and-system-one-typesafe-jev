@@ -88,29 +88,29 @@ class WeaviateIT {
         WeaviateHealth health = new WeaviateHealth(keys, connector);
         assertThat(health.check().reason()).contains("no collection yet");
 
-        // the local vectorizer instead of text2vec-weaviate; then the production loader fills it
-        connector.call("create", c -> DemoDocCollection.ensure(c, DemoDocCollection.definition(
-                VectorConfig.text2vecModel2Vec(v -> v.sourceProperties("title", "body")))));
+        // the local vectorizer instead of text2vec-weaviate (a local Weaviate has no Weaviate Cloud embeddings)
+        var local = DemoDocCollection.definition(VectorConfig.text2vecModel2Vec(v -> v.sourceProperties("title", "body")));
+        connector.call("create", c -> DemoDocCollection.ensure(c, local));
         assertThat(health.check().state()).isEqualTo(ServiceStatus.State.WAITING);
-        int loaded = new SampleDataLoader(connector).load();
-        new SampleDataLoader(connector).load();   // loading twice replaces, never duplicates
+        new SampleDataLoader(connector).load(local);
+        int loaded = new SampleDataLoader(connector).load(local);   // loading again starts fresh, never duplicates
         assertThat(connector.call("count", DemoDocCollection::count)).isEqualTo(loaded);
         assertThat(health.check().isReady()).isTrue();
 
-        // keyword question: BM25 finds the aerator manual by its code
-        HybridRetriever.Result keyword = retriever.search("reset AER-01 error E-17", HybridRetriever.Mode.HYBRID, 4);
-        assertThat(keyword.hits().getFirst().title()).contains("Reset after a trip");
+        // keyword question: BM25 finds the CRISPR passage by its exact terms
+        HybridRetriever.Result keyword = retriever.search("Cas9 PAM NGG", HybridRetriever.Mode.HYBRID, 4);
+        assertThat(keyword.hits().getFirst().title()).contains("How Cas9 cuts DNA");
         assertThat(keyword.hits().getFirst().bm25Rank()).isEqualTo(1);
         assertThat(keyword.bm25Count()).isPositive();
         assertThat(keyword.vectorCount()).isPositive();
 
         // every hybrid hit has an RRF score; BM25-only mode has no vector ranks
         assertThat(keyword.hits()).allMatch(h -> h.rrfScore() != null);
-        assertThat(retriever.search("aerator", HybridRetriever.Mode.BM25, 5).hits())
+        assertThat(retriever.search("polymerase", HybridRetriever.Mode.BM25, 5).hits())
                 .allMatch(h -> h.vectorRank() == null && h.bm25Rank() != null);
 
         // Spring AI DocumentRetriever: top 4 as Documents with the ranks in metadata
-        assertThat(retriever.retrieve(new org.springframework.ai.rag.Query("fish gasping at the surface")))
+        assertThat(retriever.retrieve(new org.springframework.ai.rag.Query("why does warm water hold less oxygen")))
                 .hasSize(HybridRetriever.TOP_K)
                 .allMatch(d -> d.getMetadata().containsKey("rrfScore"));
 

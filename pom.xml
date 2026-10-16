@@ -9,6 +9,13 @@
     <packaging>jar</packaging>
     <name>RAG demo: System 1 + System 2 + Weaviate hybrid search</name>
 
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+        </license>
+    </licenses>
+
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>

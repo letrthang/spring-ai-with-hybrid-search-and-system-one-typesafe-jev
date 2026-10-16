@@ -148,3 +148,103 @@
 .rd-step-failed { background: light-dark(#fdeaea, #2f1517); }
 @keyframes rd-pulse { 50% { box-shadow: 0 0 0 4px light-dark(rgba(59, 130, 246, .18), rgba(96, 165, 250, .22)); } }
 @media (prefers-reduced-motion: reduce) { .rd-step-active { animation: none; } }
+
+/* ---- detail card on the right of a master-detail grid (✕ closes it) ---- */
+.rd-detail {
+    margin: 0 0 0 10px;
+    height: calc(100% - 2px);
+    overflow-y: auto;
+    border-radius: 14px;
+    border: 1px solid var(--aura-divider-color, light-dark(#d7dee8, #2f3843));
+    border-top: 4px solid var(--aura-accent-color, light-dark(#3b82f6, #60a5fa));
+    background: var(--aura-surface, light-dark(#ffffff, #171c22));
+    box-shadow: 0 6px 18px light-dark(rgba(15, 36, 56, .10), rgba(0, 0, 0, .45));
+}
+.rd-detail-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: inherit;
+    border-bottom: 1px solid var(--aura-divider-color, light-dark(#e8edf3, #262e37));
+}
+@media (max-width: 640px) {
+    .rd-detail { margin: 0; border-radius: 14px 14px 0 0; }   /* on a phone the card is an overlay */
+}
+
+/* ---- System 2 model picker ---- */
+.rd-model-group {
+    display: block; margin: 2px 0 6px; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;
+    letter-spacing: .03em; background: color-mix(in srgb, var(--vaadin-text-color) 8%, transparent);
+}
+.rd-model-details { color: var(--aura-secondary-text, #64748b); }
+.rd-model-row {
+    border-radius: 8px;
+    border: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+    background: color-mix(in srgb, var(--vaadin-text-color) 3%, transparent);
+}
+.rd-model-paid { border-style: dashed; }
+
+/* ---- 🔍 record details dialog ---- */
+.rd-record-section {
+    border-radius: 10px;
+    border: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+    background: color-mix(in srgb, var(--vaadin-text-color) 3%, transparent);
+}
+.rd-record-table { display: flex; flex-direction: column; gap: 4px; }
+.rd-record-row { display: grid; grid-template-columns: minmax(8rem, 12rem) 1fr; gap: 8px; }
+@media (max-width: 640px) { .rd-record-row { grid-template-columns: 1fr; gap: 0; } }
+.rd-json {
+    font-size: 12px; line-height: 1.45; padding: 10px; border-radius: 8px; overflow-x: auto; max-width: 100%;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+    background: light-dark(#f6f8fa, #0f1419);
+}
+
+/* ---- header: centred title with a Siri-like moving colour glow ---- */
+.rd-header { min-height: 64px; position: relative; }
+.rd-brand-center { flex: 1 1 auto; position: relative; min-width: 0; padding: 6px 0; }
+.rd-toggle-spacer { width: var(--vaadin-button-height, 36px); flex: none; }
+.rd-brand-text { position: relative; z-index: 1; text-align: center; gap: 1px; }
+
+.rd-brand {
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    line-height: 1.1;
+    background: linear-gradient(90deg, #ff3cac, #a855f7, #3b82f6, #22d3ee, #34d399, #ff3cac);
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: rd-flow 8s linear infinite;
+}
+.rd-brand-sub { font-size: .8rem; color: var(--aura-secondary-text, #64748b); white-space: nowrap; }
+
+/* the glow: two blurred colour blobs drifting behind the title */
+.rd-siri-glow {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: min(420px, 80%);
+    height: 46px;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    filter: blur(18px);
+    opacity: .55;
+    background:
+        radial-gradient(closest-side, rgba(255, 60, 172, .75), transparent) 0% 50% / 45% 100% no-repeat,
+        radial-gradient(closest-side, rgba(59, 130, 246, .75), transparent) 50% 50% / 45% 100% no-repeat,
+        radial-gradient(closest-side, rgba(34, 211, 238, .75), transparent) 100% 50% / 45% 100% no-repeat;
+    animation: rd-siri 6s ease-in-out infinite alternate, rd-hue 12s linear infinite;
+    pointer-events: none;
+}
+@media (prefers-color-scheme: dark) { .rd-siri-glow { opacity: .45; } }
+
+@keyframes rd-flow { to { background-position: 300% 0; } }
+@keyframes rd-siri {
+    0%   { background-position: 0% 50%, 50% 50%, 100% 50%; transform: translate(-50%, -50%) scaleX(.9); }
+    50%  { background-position: 35% 40%, 70% 60%, 10% 50%; transform: translate(-50%, -50%) scaleX(1.05); }
+    100% { background-position: 100% 50%, 20% 50%, 55% 45%; transform: translate(-50%, -50%) scaleX(.95); }
+}
+@keyframes rd-hue { to { filter: blur(18px) hue-rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .rd-brand, .rd-siri-glow { animation: none; }
+}

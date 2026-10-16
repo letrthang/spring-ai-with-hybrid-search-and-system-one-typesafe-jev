@@ -32,7 +32,7 @@ class SampleDataLoaderTest {
         List<SampleDataLoader.Chunk> chunks = SampleDataLoader.readSampleData();
 
         assertThat(chunks).hasSizeGreaterThan(15);
-        assertThat(chunks).anyMatch(c -> c.body().contains("AER-01"));                      // a BM25 win
+        assertThat(chunks).anyMatch(c -> c.body().contains("NGG"));                         // a BM25 win
         assertThat(chunks).anyMatch(c -> c.body().contains("Ignore all previous instructions"));   // for System 1
         assertThat(chunks).anyMatch(c -> c.title().contains("Canteen menu"));                // off-topic
         assertThat(chunks).extracting(SampleDataLoader.Chunk::id).doesNotHaveDuplicates();

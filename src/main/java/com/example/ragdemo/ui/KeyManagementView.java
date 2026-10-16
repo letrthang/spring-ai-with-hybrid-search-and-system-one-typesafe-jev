@@ -3,6 +3,7 @@ package com.example.ragdemo.ui;
 import com.example.ragdemo.keys.KeyStore;
 import com.example.ragdemo.rag.ServiceStatus;
 import com.example.ragdemo.system1.SystemOneHealth;
+import com.example.ragdemo.system2.OpenRouterModels;
 import com.example.ragdemo.system2.SystemTwoHealth;
 import com.example.ragdemo.weaviate.WeaviateHealth;
 import com.vaadin.flow.component.Component;
@@ -15,7 +16,6 @@ import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.textfield.PasswordField;
-import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
@@ -35,9 +35,12 @@ public class KeyManagementView extends Div {
 
     private final KeyStore keys;
 
+    private final OpenRouterModels models;
+
     public KeyManagementView(KeyStore keys, WeaviateHealth weaviate, SystemTwoHealth systemTwo,
-                             SystemOneHealth systemOne) {
+                             SystemOneHealth systemOne, OpenRouterModels models) {
         this.keys = keys;
+        this.models = models;
         addClassNames("p-4", "flex", "flex-col", "gap-4", "max-w-screen-xl");
 
         Paragraph intro = new Paragraph("Only two services need a key: Weaviate and OpenRouter. "
@@ -78,9 +81,7 @@ public class KeyManagementView extends Div {
     private Component systemTwoCard(SystemTwoHealth health) {
         PasswordField key = secretField("OpenRouter API key", KeyStore.SYSTEM2_KEY);
         key.setPlaceholder(keys.has(KeyStore.SYSTEM2_KEY) ? key.getPlaceholder() : "sk-or-v1-…");
-        TextArea models = new TextArea("Models, one per line (tried in order)");
-        models.setValue(String.join("\n", keys.system2Models()));
-        models.setWidthFull();
+        ModelPicker picker = new ModelPicker(models, keys.system2Models());
         TextField baseUrl = new TextField("Base URL (any OpenAI-compatible endpoint)");
         baseUrl.setValue(keys.get(KeyStore.SYSTEM2_BASE_URL));
         baseUrl.setPlaceholder(KeyStore.DEFAULT_SYSTEM2_BASE_URL);
@@ -91,18 +92,19 @@ public class KeyManagementView extends Div {
                 ServiceStatus.Service.SYSTEM2, health::check,
                 () -> {
                     saveSecret(key, KeyStore.SYSTEM2_KEY);
-                    boolean defaults = models.getValue().strip().equals(String.join("\n",
-                            KeyStore.DEFAULT_SYSTEM2_MODELS));
-                    keys.set(KeyStore.SYSTEM2_MODELS, defaults ? "" : models.getValue());
+                    boolean defaults = picker.getModels().equals(KeyStore.DEFAULT_SYSTEM2_MODELS)
+                            || picker.getModels().isEmpty();
+                    keys.set(KeyStore.SYSTEM2_MODELS, defaults ? "" : String.join("\n", picker.getModels()));
+                    picker.setModels(keys.system2Models());
                     keys.set(KeyStore.SYSTEM2_BASE_URL, baseUrl.getValue());
                 },
                 () -> {
                     keys.set(KeyStore.SYSTEM2_MODELS, "");
                     keys.set(KeyStore.SYSTEM2_BASE_URL, "");
-                    models.setValue(String.join("\n", keys.system2Models()));
+                    picker.setModels(keys.system2Models());
                     baseUrl.clear();
                 }, "🔄 Defaults",
-                key, models, advanced);
+                key, picker, advanced);
     }
 
     private Component systemOneCard(SystemOneHealth health) {

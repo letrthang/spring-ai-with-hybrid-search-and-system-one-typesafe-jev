@@ -63,8 +63,8 @@ sequenceDiagram
 
 1. **Ask.** The user types a question and presses **Ask**. The chat box is disabled while the app works.
 2. **Retrieve — two ways at once.**
-   - **BM25** finds passages that share the *words* of the question (good for codes and names such as `AER-01`).
-   - **nearText** finds passages with the same *meaning*, even with other words ("fish gasping" ≈ "low oxygen").
+   - **BM25** finds passages that share the *words* of the question (good for exact names and codes such as `Cas9` or `NGG`).
+   - **nearText** finds passages with the same *meaning*, even with other words ("warm water holds less oxygen" ≈ "gas solubility falls as temperature rises").
      Weaviate turns the text into a vector itself (its built-in vectorizer), so we need no embedding model.
 3. **Fuse (RRF).** The two lists are merged with *Reciprocal Rank Fusion*: each passage gets
    `1 / (60 + rank)` from every list it appears in, and the scores are added. A passage high in **both** lists wins.
@@ -109,13 +109,13 @@ step needs one".
 
 ## 5. Vector vs BM25 vs hybrid
 
-Example collection: *(A)* "`AER-01` aerator: restart by holding the reset button for 5 s", *(B)* "When fish gather at
-the surface gasping, dissolved oxygen is too low — switch on the aerators".
+Example collection: *(A)* "Cas9 only cuts where the target is followed by the PAM sequence `NGG`", *(B)* "Warm liquids
+hold less dissolved gas than cold ones (Henry's law)".
 
 | Question | BM25 (words) | Vector (meaning) | Hybrid (RRF) |
 |---|---|---|---|
-| "how to reset AER-01" | ✅ (A) — exact code | 🟠 may rank (B) first: both are "about aerators" | ✅ (A) — top of BM25 |
-| "my fish are breathing at the top of the water" | ❌ few shared words | ✅ (B) — same meaning | ✅ (B) — top of vector |
+| "what is NGG for Cas9" | ✅ (A) — exact code | 🟠 a general "DNA" passage may rank close | ✅ (A) — top of BM25 |
+| "why does a warm pond run short of oxygen" | ❌ few shared words | ✅ (B) — same meaning | ✅ (B) — top of vector |
 
 Each method misses something; the fused list gets both right. That is why the demo runs both and shows both ranks in
 📚 Sources and in 🔎 Search Data.

@@ -24,10 +24,10 @@ class RrfFusionTest {
 
     @Test
     void architectureExample_eachMethodWinsOneQuestion() {
-        // "how to reset AER-01": BM25 finds the manual first, vector prefers the oxygen passage
+        // "Cas9 NGG": BM25 finds the CRISPR passage first, vector prefers a general gene passage
         assertThat(RrfFusion.fuse(List.of("manual"), List.of("oxygen", "manual")).getFirst().id())
                 .isEqualTo("manual");
-        // "fish breathing at the top": BM25 finds nothing useful, vector finds the oxygen passage
+        // "why warm water holds less oxygen": BM25 finds nothing useful, vector finds the gas passage
         assertThat(RrfFusion.fuse(List.of(), List.of("oxygen", "manual")).getFirst().id()).isEqualTo("oxygen");
     }
 
