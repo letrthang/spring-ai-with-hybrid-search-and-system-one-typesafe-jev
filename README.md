@@ -105,9 +105,10 @@ persistent, so after a restart or redeploy you enter them again.
 
 ### Sample data
 
-📥 **Load sample data** (in 🔎 Search Data) loads 46 passages: biotech basics (DNA, PCR, CRISPR, fermentation),
+📥 **Load sample data** (in 🔎 Search Data) loads 64 passages: biotech basics (DNA, PCR, CRISPR, fermentation),
 physics basics (forces, electricity, heat and gases, light), a fish-farm handbook, and office notes with an off-topic
-canteen menu and a planted prompt injection — for System 1 to drop.
+canteen menu and a planted prompt injection — for System 1 to drop. PCR, forces and heat & gases are also in
+🇻🇳 Vietnamese and 🇯🇵 Japanese, so the example questions work in every page language.
 
 ## System 1: default or your own
 

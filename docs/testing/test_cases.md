@@ -10,9 +10,9 @@ its date and where it ran. ✅ passed · 🟠 partly / with a stand-in · ❌ fa
   for Weaviate Cloud's embeddings) + real Laya; System 2 a local stand-in. Used before the keys were available.
 - **Render** — <https://spring-ai-with-hybrid-search-and-system.onrender.com>.
 
-**Sample data** (46 passages): biotech basics (DNA, PCR, CRISPR, fermentation), physics basics (mechanics, electricity,
+**Sample data** (64 passages): biotech basics (DNA, PCR, CRISPR, fermentation), physics basics (mechanics, electricity,
 heat and gases, light), the fish-farm handbook, "how this demo works", and office notes with an off-topic canteen menu
-and a planted prompt injection.
+and a planted prompt injection. PCR, mechanics and heat & gases also in Vietnamese and Japanese (files 15–20).
 
 ## Step 0 — start
 
@@ -27,7 +27,7 @@ and a planted prompt injection.
 | TC-01 | No keys → chat disabled | Fresh start, open 💬 Chat | Pills: 🔴 Weaviate "no URL or API key", 🟢 System 1 "Laya is ready", 🔴 System 2 "no API key"; ⚠️ banner with 🔑 link; question box + Ask disabled |
 | TC-02 | Keys are masked and kept | Save a key; reload; restart the app | Field empty, placeholder `••••abcd`; kept after a **local** restart; **Render** forgets it on restart |
 | TC-03 | Wrong key | Save a wrong OpenRouter / Weaviate key | 🔴 "invalid API key — check 🔑 Key Management" |
-| TC-04 | Load sample data | 🔎 Search Data → 📥 Load | Collection dropped and re-created (HFresh), "46 passages loaded", 🟢 "46 passages" |
+| TC-04 | Load sample data | 🔎 Search Data → 📥 Load | Collection dropped and re-created (HFresh), "64 passages loaded", 🟢 "64 passages" |
 | TC-05 | Columns per mode | Empty query, then a query in BM25 / Vector / Hybrid | List: #, Title, Source · BM25: + BM25 rank · Vector: + vector rank · Hybrid: + both + RRF |
 | TC-06 | Meaning vs keyword | "why does warm water hold less oxygen" in the 3 modes | The Henry's-law passage first; Hybrid merges both lists |
 | TC-07 | Record details | Double-click a row | 📍 cluster, collection, object UUID + how it is made, REST address · 🧱 fields and indexes · 🧮 vector (1024 numbers) · { } raw JSON |
@@ -41,6 +41,7 @@ and a planted prompt injection.
 | TC-15 | A service fails | Wrong System 2 key, then ask | ⚠️ in the answer, pill 🔴, chat disabled, ⛔ on the 🧠 step |
 | TC-16 | Phone + dark | 390 px, dark, all 3 menus | No sideways scroll; cards stack; overlays for detail cards |
 | TC-17 | ℹ️ learning hints | Click ℹ️ next to a title, pill, column or term | Small dialog: what it is · what it does here · linked to · a little theory · learn more |
+| TC-18 | Questions in 🇻🇳 / 🇯🇵 | Switch the language (top right) → click each example question | Cited answer from the passages in that language; ⚡ keeps the Vietnamese / Japanese passage |
 
 ## Results
 
