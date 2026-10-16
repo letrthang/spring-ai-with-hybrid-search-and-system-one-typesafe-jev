@@ -193,10 +193,42 @@
 .rd-record-table { display: flex; flex-direction: column; gap: 4px; }
 .rd-record-row { display: grid; grid-template-columns: minmax(8rem, 12rem) 1fr; gap: 8px; }
 @media (max-width: 640px) { .rd-record-row { grid-template-columns: 1fr; gap: 0; } }
-.rd-json {
-    font-size: 12px; line-height: 1.45; padding: 10px; border-radius: 8px; overflow-x: auto; max-width: 100%;
+/* 🗂️ the stored object, laid out like Weaviate Explorer → Browse: purple group chips, grey key chips, boxed values */
+.rd-wv { display: flex; flex-direction: column; gap: 8px; font-size: .875rem; }
+.rd-wv-group {
+    display: inline-block; padding: 3px 10px; border-radius: 6px; font-weight: 500;
+    color: light-dark(#6d28d9, #c4b5fd);
+    border: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+    background: color-mix(in srgb, var(--vaadin-text-color) 4%, transparent);
+}
+.rd-wv-indent { display: flex; flex-direction: column; gap: 8px; padding-left: 1.75rem; }
+.rd-wv-field { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.rd-wv-key {
+    flex: none; padding: 3px 10px; border-radius: 6px; color: var(--aura-secondary-text, #64748b);
+    background: color-mix(in srgb, var(--vaadin-text-color) 7%, transparent);
+}
+.rd-wv-value {
+    min-width: 0; padding: 3px 10px; border-radius: 6px; overflow-wrap: anywhere;
+    border: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+}
+.rd-wv-line {
+    display: flex; flex-direction: column; gap: 6px; padding-left: 12px;
+    border-left: 2px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+}
+.rd-wv-vector { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+.rd-wv-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+.rd-wv-json {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5;
+    max-height: 26rem; overflow: auto; padding: 10px 12px; border-radius: 8px;
     white-space: pre-wrap; overflow-wrap: anywhere;
     background: light-dark(#f6f8fa, #0f1419);
+    border: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+}
+.rd-wv-fold::part(summary) { padding: 0; min-height: 0; }
+.rd-wv-fold::part(content) { padding: 8px 0 0; }
+@media (max-width: 640px) {
+    .rd-wv-indent { padding-left: .75rem; }
+    .rd-wv-field { flex-direction: column; gap: 2px; }
 }
 
 /* ---- header: centred title with a Siri-like moving colour glow ---- */
