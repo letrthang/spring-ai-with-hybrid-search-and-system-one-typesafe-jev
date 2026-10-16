@@ -22,6 +22,7 @@ class KeyStoreTest {
     @BeforeEach
     void empty() {
         repository.deleteAll();
+        keys.clearTyped();
     }
 
     @Test
@@ -65,5 +66,25 @@ class KeyStoreTest {
         keys.set(KeyStore.WEAVIATE_URL, "https://saved.weaviate.cloud");
         assertThat(keys.weaviateUrl()).isEqualTo("https://saved.weaviate.cloud");
         assertThat(keys.fromConfig(KeyStore.WEAVIATE_URL)).isFalse();
+    }
+
+    @Test
+    void keysAreNeverWrittenToTheDatabase_andNeverShown() {
+        keys.set(KeyStore.SYSTEM2_KEY, "sk-or-v1-secret-1234");
+        keys.set(KeyStore.WEAVIATE_URL, "https://mine.weaviate.cloud");
+        keys.set(KeyStore.SYSTEM2_MODELS, "a:free");
+
+        assertThat(keys.system2Key()).isEqualTo("sk-or-v1-secret-1234");   // used…
+        assertThat(repository.findById(KeyStore.SYSTEM2_KEY)).isEmpty();      // …but not stored
+        assertThat(repository.findById(KeyStore.WEAVIATE_URL)).isEmpty();
+        assertThat(repository.findById(KeyStore.SYSTEM2_MODELS)).isPresent(); // only the model list is stored
+        assertThat(keys.masked(KeyStore.SYSTEM2_KEY)).doesNotContain("1234");
+    }
+
+    @Test
+    void keyRowsLeftByAnOlderVersionAreRemovedAtStart() {
+        repository.save(new ApiSetting(KeyStore.WEAVIATE_KEY, "old-stored-key"));
+        keys.forgetStoredConnections();
+        assertThat(repository.findById(KeyStore.WEAVIATE_KEY)).isEmpty();
     }
 }
