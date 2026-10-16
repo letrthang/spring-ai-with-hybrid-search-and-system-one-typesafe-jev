@@ -85,6 +85,29 @@ public class InfoHint extends Button {
         return p;
     }
 
+    /**
+     * A chip of generated data (a score, a rank, a verdict) that is itself a hint: "BM25 #1 ℹ️". Clicking it opens
+     * the lesson for that kind of value, so every number on screen can explain itself.
+     */
+    public static Button chip(String text, Hint hint, String... extraClasses) {
+        Button chip = new Button(text + " ℹ️", e -> dialog(hint).open());
+        chip.addThemeVariants(ButtonVariant.TERTIARY, ButtonVariant.SMALL);
+        chip.addClassNames("rd-status", "rd-status-UNKNOWN", "rd-info-chip");
+        chip.addClassNames(extraClasses);
+        chip.getElement().setAttribute("title", "What does this mean?");
+        chip.getElement().setAttribute("aria-label", text + " — what does this mean? " + hint.title);
+        return chip;
+    }
+
+    /** The hint for a 🔬 Trace line or a status, by its leading emoji. */
+    public static Hint forStep(String step) {
+        if (step.startsWith("🗄️")) return Hint.WEAVIATE;
+        if (step.startsWith("⚡")) return Hint.SYSTEM1;
+        if (step.startsWith("🧠")) return Hint.SYSTEM2;
+        if (step.startsWith("⛔")) return Hint.FAIL_CLOSED;
+        return Hint.TRACE;
+    }
+
     /** A heading or label followed by its ℹ️ button, kept on one line. */
     public static Div with(com.vaadin.flow.component.Component labelled, Hint hint) {
         Div row = new Div(labelled, new InfoHint(hint));

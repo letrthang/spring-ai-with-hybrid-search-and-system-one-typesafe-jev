@@ -125,7 +125,7 @@ public class SearchDataView extends Div {
     private Div statusRow() {
         Span hint = new Span("Click selects · click again to close · double-click a row for 🔍 Details…");
         hint.addClassNames("rd-muted", "text-sm");
-        Div row = new Div(pill, resultInfo, hint);
+        Div row = new Div(pill, InfoHint.with(resultInfo, Hint.SEARCH_MODES), hint);
         row.addClassNames("flex", "flex-wrap", "gap-3", "items-center");
         resultInfo.addClassNames("text-sm");
         return row;
@@ -186,9 +186,10 @@ public class SearchDataView extends Div {
         Span source = new Span("📄 " + hit.source() + (hit.chunkNo() == null ? "" : " · passage " + hit.chunkNo()));
         source.addClassNames("rd-muted", "text-sm");
         Div chips = new Div(
-                chip("BM25 " + rank(hit.bm25Rank(), hit.bm25Score(), "%.2f")),
-                chip("Vector " + rank(hit.vectorRank(), hit.vectorDistance(), "%.3f")),
-                chip("RRF " + (hit.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f", hit.rrfScore()))));
+                InfoHint.chip("BM25 " + rank(hit.bm25Rank(), hit.bm25Score(), "%.2f"), Hint.BM25),
+                InfoHint.chip("Vector " + rank(hit.vectorRank(), hit.vectorDistance(), "%.3f"), Hint.VECTOR),
+                InfoHint.chip("RRF " + (hit.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f",
+                        hit.rrfScore())), Hint.RRF));
         chips.addClassNames("flex", "flex-wrap", "gap-2");
         Paragraph body = new Paragraph(hit.body());
         body.addClassNames("m-0", "whitespace-pre-line");
@@ -197,11 +198,6 @@ public class SearchDataView extends Div {
         return content;
     }
 
-    private static Span chip(String text) {
-        Span chip = new Span(text);
-        chip.addClassNames("rd-status", "rd-status-UNKNOWN");
-        return chip;
-    }
 
     /** "#2 · 3.41", or "—" when the passage was not in that list. */
     static String rank(Integer rank, Float value, String format) {

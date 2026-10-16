@@ -31,8 +31,14 @@ public final class DataFlowDiagram {
         Div heads = new Div();
         heads.addClassName("rd-flow-heads");
         for (Actor actor : ACTORS) {
-            Span head = new Span(actor.label);
-            head.addClassName("rd-flow-actor");
+            Span name = new Span(actor.label);
+            Div head = InfoHint.with(name, switch (actor) {
+                case USER, APP -> Hint.RAG;
+                case WEAVIATE -> Hint.WEAVIATE;
+                case SYSTEM1 -> Hint.SYSTEM1;
+                case SYSTEM2 -> Hint.SYSTEM2;
+            });
+            head.addClassNames("rd-flow-actor", "justify-center");
             heads.add(head);
         }
 
@@ -48,7 +54,9 @@ public final class DataFlowDiagram {
 
         Div canvas = new Div(heads, body);
         canvas.addClassName("rd-flow-canvas");
-        Div diagram = new Div(canvas, legend(hops));
+        Div legendRow = new Div(legend(hops), new InfoHint(Hint.DATA_FLOW));
+        legendRow.addClassNames("flex", "items-center", "gap-1");
+        Div diagram = new Div(canvas, legendRow);
         diagram.addClassName("rd-flow");
         return diagram;
     }
