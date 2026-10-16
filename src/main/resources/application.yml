@@ -5,6 +5,9 @@ server:
 spring:
   application:
     name: ragdemo
+  config:
+    # Optional, git-ignored file next to the jar / project root for YOUR local keys (never committed).
+    import: optional:file:./application-local.yml
   threads:
     virtual:
       enabled: true   # blocking calls (Weaviate, Laya, OpenRouter) run on virtual threads
@@ -28,3 +31,18 @@ management:
     web:
       exposure:
         include: health
+
+# Defaults for Key Management, used when nothing was saved there. Empty on purpose: NEVER put a key in this file.
+# Set them locally with environment variables, or in the git-ignored ./application-local.yml (see README → Run).
+ragdemo:
+  defaults:
+    weaviate:
+      url: ${RAGDEMO_WEAVIATE_URL:}
+      key: ${RAGDEMO_WEAVIATE_KEY:}
+    system2:
+      key: ${RAGDEMO_OPENROUTER_KEY:}
+
+# Code-flow logs: one line per RAG step (+ details at DEBUG). DEBUG locally, INFO on Render (set in the Dockerfile).
+logging:
+  level:
+    com.example.ragdemo: ${RAGDEMO_LOG_LEVEL:DEBUG}

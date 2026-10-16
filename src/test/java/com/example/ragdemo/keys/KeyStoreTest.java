@@ -9,7 +9,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:keys;DB_CLOSE_DELAY=-1")
+@SpringBootTest(properties = {"spring.datasource.url=jdbc:h2:mem:keys;DB_CLOSE_DELAY=-1",
+        "ragdemo.defaults.weaviate.url=https://from-config.weaviate.cloud"})
 class KeyStoreTest {
 
     @Autowired
@@ -54,5 +55,15 @@ class KeyStoreTest {
         assertThat(KeyStore.mask("sk-or-v1-abcdefgh1234")).isEqualTo("••••1234");
         assertThat(KeyStore.mask("short")).isEqualTo("••••");
         assertThat(KeyStore.mask("")).isEmpty();
+    }
+
+    @Test
+    void configuredDefaultIsUsedUntilAKeyIsSavedInKeyManagement() {
+        assertThat(keys.weaviateUrl()).isEqualTo("https://from-config.weaviate.cloud");
+        assertThat(keys.fromConfig(KeyStore.WEAVIATE_URL)).isTrue();
+
+        keys.set(KeyStore.WEAVIATE_URL, "https://saved.weaviate.cloud");
+        assertThat(keys.weaviateUrl()).isEqualTo("https://saved.weaviate.cloud");
+        assertThat(keys.fromConfig(KeyStore.WEAVIATE_URL)).isFalse();
     }
 }

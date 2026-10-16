@@ -1,5 +1,7 @@
 package com.example.ragdemo.system2;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.example.ragdemo.keys.KeyStore;
 import com.example.ragdemo.rag.Http;
 import com.example.ragdemo.rag.SystemDownException;
@@ -29,6 +31,8 @@ import static com.example.ragdemo.rag.ServiceStatus.Service.SYSTEM2;
 @Component
 public class SystemTwoClient {
 
+    private static final Logger log = LoggerFactory.getLogger(SystemTwoClient.class);
+
     /** Longest wait for one model. Free models can be slow; the next model gets its own time. */
     public static final Duration PER_MODEL_TIMEOUT = Duration.ofSeconds(45);
 
@@ -50,6 +54,7 @@ public class SystemTwoClient {
         List<String> skipped = new ArrayList<>();
         for (String model : keys.system2Models()) {
             long t0 = System.currentTimeMillis();
+            log.debug("🧠 trying {} at {}", model, baseUrl);
             try {
                 ChatResponse response = call(baseUrl, key, model, system, user);
                 String text = response.getResult() == null ? null : response.getResult().getOutput().getText();
@@ -66,6 +71,7 @@ public class SystemTwoClient {
                     throw new SystemDownException(SYSTEM2, "invalid API key — check 🔑 Key Management");
                 }
                 skipped.add(model + ": " + reason(e, status));
+                log.info("🧠 {} failed: {} → next model", model, reason(e, status));
             }
         }
         throw new SystemDownException(SYSTEM2, "every model failed — " + String.join("; ", skipped));

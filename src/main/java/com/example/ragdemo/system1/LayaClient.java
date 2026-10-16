@@ -1,5 +1,7 @@
 package com.example.ragdemo.system1;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.example.ragdemo.keys.KeyStore;
 import com.example.ragdemo.rag.Http;
 import com.example.ragdemo.rag.SystemDownException;
@@ -36,6 +38,8 @@ import static com.example.ragdemo.rag.ServiceStatus.Service.SYSTEM1;
 @Component
 public class LayaClient {
 
+    private static final Logger log = LoggerFactory.getLogger(LayaClient.class);
+
     /** The public route rejects bodies over 2 KB; we stay under it with room to spare. */
     public static final int MAX_BODY_BYTES = 1900;
     static final Duration TIMEOUT = Duration.ofSeconds(60);
@@ -70,6 +74,7 @@ public class LayaClient {
             throw new SystemDownException(SYSTEM1, "Laya unreachable (" + Http.describe(e) + ")");
         }
         long ms = System.currentTimeMillis() - t0;
+        log.debug("⚡ Laya POST {} → HTTP {} in {} ms ({} bytes sent)", url, response.statusCode(), ms, body.length());
         return switch (response.statusCode()) {
             case 200 -> parse(response.body(), ms);
             case 429 -> throw new SystemDownException(SYSTEM1,

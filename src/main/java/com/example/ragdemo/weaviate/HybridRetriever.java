@@ -1,5 +1,7 @@
 package com.example.ragdemo.weaviate;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import io.weaviate.client6.v1.api.collections.CollectionHandle;
 import io.weaviate.client6.v1.api.collections.WeaviateObject;
 import io.weaviate.client6.v1.api.collections.query.FetchObjects;
@@ -33,6 +35,8 @@ import java.util.concurrent.Future;
  */
 @Component
 public class HybridRetriever implements DocumentRetriever {
+
+    private static final Logger log = LoggerFactory.getLogger(HybridRetriever.class);
 
     /** How many passages each search returns before fusion. */
     public static final int CANDIDATES = 20;
@@ -78,6 +82,8 @@ public class HybridRetriever implements DocumentRetriever {
                 Timed b = get(bm25);
                 Timed v = get(vector);
                 List<Hit> hits = merge(b.objects, v.objects, mode);
+                log.debug("🗄️ search {} \"{}\": bm25 {} ({} ms), vector {} ({} ms) → {} merged", mode, text,
+                        b.objects.size(), b.ms, v.objects.size(), v.ms, hits.size());
                 return new Result(hits.subList(0, Math.min(limit, hits.size())),
                         bm25 == null ? -1 : b.objects.size(), b.ms, vector == null ? -1 : v.objects.size(), v.ms);
             }

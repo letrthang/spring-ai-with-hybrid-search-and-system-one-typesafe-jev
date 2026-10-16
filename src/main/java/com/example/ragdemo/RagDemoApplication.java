@@ -22,7 +22,7 @@ public class RagDemoApplication implements AppShellConfigurator {
 
     @Override
     public void configurePage(AppShellSettings settings) {
-        settings.addFavIcon("icon", "icons/favicon.svg", "any");
+        settings.addFavIcon("icon", "icons/favicon.webp", "128x128");
     }
 
     public static void main(String[] args) {

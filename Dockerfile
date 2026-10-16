@@ -13,6 +13,8 @@ WORKDIR /app
 COPY --from=build /app/target/ragdemo-1.0-SNAPSHOT.jar app.jar
 # Render's free plan has 512 MB: let the heap use 70 % of it, the rest is for threads and metaspace.
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k"
+# Code-flow logs at INFO on Render (DEBUG locally — see application.yml).
+ENV RAGDEMO_LOG_LEVEL=INFO
 # Render sets PORT (application.yml reads it); 8080 locally.
 EXPOSE 8080
 CMD ["java", "-jar", "app.jar"]

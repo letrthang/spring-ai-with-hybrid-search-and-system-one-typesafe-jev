@@ -1,5 +1,7 @@
 package com.example.ragdemo.weaviate;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.example.ragdemo.keys.KeyStore;
 import com.example.ragdemo.rag.Http;
 import com.example.ragdemo.rag.SystemDownException;
@@ -22,6 +24,8 @@ import static com.example.ragdemo.rag.ServiceStatus.Service.WEAVIATE;
 @Component
 public class WeaviateConnector {
 
+    private static final Logger log = LoggerFactory.getLogger(WeaviateConnector.class);
+
     /** A piece of work against Weaviate. */
     @FunctionalInterface
     public interface Work<T> {
@@ -42,6 +46,7 @@ public class WeaviateConnector {
         } catch (SystemDownException e) {
             throw e;
         } catch (Exception e) {
+            log.warn("🗄️ Weaviate {} failed: {}", what, Http.describe(e));
             close();   // the next call opens a fresh client
             throw new SystemDownException(WEAVIATE, what + " failed (" + Http.describe(e) + ")");
         }
@@ -56,6 +61,7 @@ public class WeaviateConnector {
         String identity = url + "\n" + key;
         if (client == null || !identity.equals(builtFor)) {
             close();
+            log.info("🗄️ opening a Weaviate client for {}", WeaviateHealth.withScheme(url));   // never the key
             client = open(WeaviateHealth.withScheme(url), key);
             builtFor = identity;
         }

@@ -1,5 +1,7 @@
 package com.example.ragdemo.chat;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.example.ragdemo.rag.RagAnswer;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -14,6 +16,8 @@ import java.util.UUID;
 /** Saves each question + answer to the H2 file DB and reads the 📂 History back. */
 @Service
 public class ChatHistoryService {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatHistoryService.class);
 
     static final int TITLE_LENGTH = 80;
     private static final JsonMapper JSON = JsonMapper.builder().build();
@@ -47,6 +51,8 @@ public class ChatHistoryService {
                 JSON.writeValueAsString(answer), now));
         session.addMessages(2, now);
         sessions.save(session);
+        log.debug("💾 saved turn {} of conversation {} ({})", session.getMessageCount() / 2, session.getId(),
+                answer.failed() ? "FAILED" : "OK");
         return session.getId();
     }
 

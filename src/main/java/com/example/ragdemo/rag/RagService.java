@@ -1,5 +1,7 @@
 package com.example.ragdemo.rag;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.example.ragdemo.rag.FlowRecorder.Actor;
 import com.example.ragdemo.rag.RagAnswer.Source;
 import com.example.ragdemo.rag.RagAnswer.TraceLine;
@@ -39,6 +41,8 @@ import java.util.function.Consumer;
  */
 @Service
 public class RagService {
+
+    private static final Logger log = LoggerFactory.getLogger(RagService.class);
 
     /** The rules System 2 gets. The question and passages come in the user message (see {@link #PROMPT}). */
     static final String SYSTEM_PROMPT = "You are the assistant of a RAG demo. Answer only from the numbered passages "
@@ -94,6 +98,7 @@ public class RagService {
         List<TraceLine> trace = new ArrayList<>();
         Map<String, Source> sources = new LinkedHashMap<>();   // passage id → what we know about it
         flow.call(Actor.USER, Actor.APP, "1. question", 0, 0, question);
+        log.info("▶ RAG ask: \"{}\"", FlowRecorder.shorten(question));
         try {
             // ---- 2 + 3. retrieve: BM25 and nearText at the same time, merged by RRF
             onProgress.accept(new Progress(Stage.SEARCH, "BM25 + vector search, merged by RRF"));
@@ -108,6 +113,9 @@ public class RagService {
             List<Document> passages = found.hits().stream().map(HybridRetriever::toDocument).toList();
             passages.forEach(d -> sources.put(d.getId(), source(d, null)));
             flow.note(Actor.APP, "3. RRF → top " + passages.size(), titles(passages));
+            log.info("  [2/6] 🗄️ Weaviate: BM25 {} hits ({} ms) + vector {} hits ({} ms) → RRF top {}: {}",
+                    found.bm25Count(), found.bm25Ms(), found.vectorCount(), found.vectorMs(), passages.size(),
+                    titles(passages));
             trace.add(new TraceLine("🗄️ Weaviate", "BM25 " + found.bm25Count() + " hits in " + found.bm25Ms()
                     + " ms · vector " + found.vectorCount() + " hits in " + found.vectorMs() + " ms · RRF → "
                     + passages.size() + " passages"));
@@ -127,16 +135,23 @@ public class RagService {
                                 num(m.get(SystemOneFilter.RELEVANT)), num(m.get(SystemOneFilter.ANSWERS)),
                                 num(m.get(SystemOneFilter.INJECTION))));
                 sources.put(d.getId(), source(d, null));
+                log.debug("        ⚡ {} → {} ({}, {} ms)", title(d), m.get(SystemOneFilter.VERDICT),
+                        String.format(Locale.ROOT, "relevant %.2f · answers %.2f · injection %.2f",
+                                num(m.get(SystemOneFilter.RELEVANT)), num(m.get(SystemOneFilter.ANSWERS)),
+                                num(m.get(SystemOneFilter.INJECTION))), ms);
             }
             List<Document> kept = scored.stream().filter(SystemOneFilter::kept).toList();
             List<Document> best = reranker.process(new Query(question), kept);
             flow.note(Actor.APP, "rerank → best " + best.size(), titles(best));
+            log.info("  [4/6] ⚡ System 1: kept {} of {} in {} ms → best {}: {}", kept.size(), scored.size(),
+                    flow.now() - at, best.size(), titles(best));
             trace.add(new TraceLine("⚡ System 1", scored.size() + " calls in parallel, " + (flow.now() - at)
                     + " ms · kept " + kept.size() + " of " + scored.size() + " · best " + best.size() + " go on"));
 
             if (best.isEmpty()) {
                 flow.reply(Actor.APP, Actor.USER, "no usable passage", flow.now(), "System 2 not called");
                 trace.add(new TraceLine("🧠 System 2", "not called — no passage was kept"));
+                log.info("  ■ no passage kept → System 2 not called ({} ms)", flow.now());
                 return done(question, NOTHING_KEPT, sources, trace, flow, null, null);
             }
 
@@ -149,6 +164,8 @@ public class RagService {
                     .augment(new Query(question), best);
             flow.note(Actor.APP, "5. augment", best.size() + " passages + question → prompt of "
                     + prompt.text().length() + " characters");
+            log.info("  [5/6] ✍️ augment: {} passages + question → prompt of {} chars", best.size(), prompt.text().length());
+            log.debug("        prompt:\n{}", prompt.text());
 
             // ---- 6. System 2 writes the answer
             onProgress.accept(new Progress(Stage.SYSTEM2, "writing the answer from " + best.size() + " passages"));
@@ -161,11 +178,17 @@ public class RagService {
                     + tokens(answer.tokensIn()) + " in / " + tokens(answer.tokensOut()) + " out"
                     + (answer.skipped().isEmpty() ? "" : " · skipped " + answer.skipped())));
             flow.reply(Actor.APP, Actor.USER, "7. answer + sources", flow.now(), answer.text());
+            log.info("  [6/6] 🧠 System 2: {} answered in {} ms (tokens {} in / {} out){}", answer.model(), answer.ms(),
+                    tokens(answer.tokensIn()), tokens(answer.tokensOut()),
+                    answer.skipped().isEmpty() ? "" : ", skipped " + answer.skipped());
+            log.info("✔ RAG done in {} ms: \"{}\"", flow.now(), FlowRecorder.shorten(answer.text()));
             return done(question, answer.text(), sources, trace, flow, answer.model(), null);
 
         } catch (SystemDownException down) {
             // a required service failed: stop here, and show how far the question got
             flow.note(Actor.APP, "⛔ stopped: " + down.service().label, down.reason());
+            log.warn("⛔ RAG stopped after {} ms — {} is not available: {}", flow.now(), down.service().label,
+                    down.reason());
             trace.add(new TraceLine("⛔ " + down.service().label, down.reason()));
             return done(question, null, sources, trace, flow, null,
                     new RagAnswer.Failure(down.service(), down.reason()));

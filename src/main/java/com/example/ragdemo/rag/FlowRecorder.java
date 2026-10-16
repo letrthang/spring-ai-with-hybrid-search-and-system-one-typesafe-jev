@@ -57,7 +57,7 @@ public class FlowRecorder {
         hops.add(new FlowHop(hops.size() + 1, from, to, kind, label, atMs, ms, shorten(summary)));
     }
 
-    static String shorten(String text) {
+    public static String shorten(String text) {
         if (text == null) return "";
         String oneLine = text.replaceAll("\\s+", " ").strip();
         return oneLine.length() <= MAX_SUMMARY ? oneLine : oneLine.substring(0, MAX_SUMMARY - 1) + "…";
