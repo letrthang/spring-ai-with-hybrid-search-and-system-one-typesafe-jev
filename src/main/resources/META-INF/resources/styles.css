@@ -273,7 +273,8 @@
 .rd-built-with { position: relative; z-index: 2; padding-right: 6px; }
 .rd-logo { height: 22px; width: auto; display: block; }
 .rd-logo-label { display: none; font-size: .8rem; font-weight: 600; color: var(--aura-secondary-text, #64748b); }
-@media (min-width: 1400px) { .rd-logo-label { display: inline; } }
+/* four logos with names need room beside the centred title: names only on very wide screens, icons (with tooltips) below */
+@media (min-width: 1800px) { .rd-logo-label { display: inline; } }
 .rd-built-with a { text-decoration: none; border-radius: 8px; padding: 4px 6px; transition: background .15s ease; }
 .rd-built-with a:hover { background: color-mix(in srgb, var(--vaadin-text-color) 7%, transparent); }
 @media (max-width: 640px) { .rd-brand-center { max-width: calc(100% - 150px); } .rd-brand-sub { display: none; } }
