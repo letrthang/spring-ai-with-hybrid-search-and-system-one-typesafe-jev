@@ -82,7 +82,7 @@ public class SearchDataView extends Div {
         warning.addClassNames("rd-warning", "m-0", "p-3");
         warning.setVisible(false);
 
-        add(new H2("🔎 Search Data"), intro, toolbar(), statusRow(), warning, results());
+        add(InfoHint.with(new H2("🔎 Search Data"), Hint.WEAVIATE), intro, toolbar(), statusRow(), warning, results());
         addAttachListener(e -> checkHealth());   // not in the constructor: background work needs the attached UI
     }
 
@@ -114,7 +114,8 @@ public class SearchDataView extends Div {
 
         Div searchRow = new Div(query, searchButton);
         searchRow.addClassNames("flex", "gap-2", "items-center", "w-full", "lg:w-auto", "lg:grow");
-        Div actions = new Div(mode, loadButton, clearButton);
+        Div actions = new Div(mode, new InfoHint(Hint.SEARCH_MODES), loadButton, new InfoHint(Hint.CHUNKS),
+                clearButton);
         actions.addClassNames("flex", "flex-wrap", "gap-2", "items-center");
         Div bar = new Div(searchRow, actions);
         bar.addClassNames("rd-card", "p-3", "flex", "flex-wrap", "gap-3", "items-center");
@@ -135,12 +136,12 @@ public class SearchDataView extends Div {
                 .setTextAlign(ColumnTextAlign.END);
         grid.addColumn(Hit::title).setHeader("Title").setFlexGrow(4);
         grid.addColumn(Hit::source).setHeader("Source").setFlexGrow(2);
-        bm25Column = grid.addColumn(h -> rank(h.bm25Rank(), h.bm25Score(), "%.2f")).setHeader("BM25 rank · score")
+        bm25Column = grid.addColumn(h -> rank(h.bm25Rank(), h.bm25Score(), "%.2f")).setHeader(InfoHint.with(new Span("BM25 rank · score"), Hint.BM25))
                 .setFlexGrow(1);
         vectorColumn = grid.addColumn(h -> rank(h.vectorRank(), h.vectorDistance(), "%.3f"))
-                .setHeader("Vector rank · distance").setFlexGrow(1);
+                .setHeader(InfoHint.with(new Span("Vector rank · distance"), Hint.VECTOR)).setFlexGrow(1);
         rrfColumn = grid.addColumn(h -> h.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f", h.rrfScore()))
-                .setHeader("RRF score").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
+                .setHeader(InfoHint.with(new Span("RRF score"), Hint.RRF)).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         showScoreColumns(null);
         grid.getColumns().forEach(c -> c.setResizable(true));
         grid.addThemeVariants(GridVariant.ROW_STRIPES);
@@ -167,7 +168,7 @@ public class SearchDataView extends Div {
         fullScreen.addThemeVariants(ButtonVariant.TERTIARY);
         fullScreen.getElement().setAttribute("title", "Full screen (Esc to exit)");
         fullScreen.getElement().setAttribute("aria-label", "Full screen");
-        Span title = new Span("📄 Passages");
+        Div title = InfoHint.with(new Span("📄 Passages"), Hint.RECORD);
         title.addClassNames("font-semibold");
         Div head = new Div(title, fullScreen);
         head.addClassNames("flex", "justify-between", "items-center");

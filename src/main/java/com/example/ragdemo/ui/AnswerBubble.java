@@ -43,7 +43,9 @@ public final class AnswerBubble {
             text.addClassName("rd-markdown");
             bubble.add(text);
         }
-        bubble.add(sources(a), trace(a), dataFlowButton(a));
+        Div flowRow = new Div(dataFlowButton(a), new InfoHint(Hint.DATA_FLOW));
+        flowRow.addClassNames("flex", "items-center", "gap-1");
+        bubble.add(sources(a), trace(a), flowRow);
         return bubble;
     }
 
@@ -52,6 +54,12 @@ public final class AnswerBubble {
     private static Details sources(RagAnswer a) {
         Div list = new Div();
         list.addClassNames("flex", "flex-col", "gap-2");
+        Div learn = new Div(muted("Learn:"), new InfoHint(Hint.SOURCES, "Sources"), new InfoHint(Hint.BM25, "BM25"),
+                new InfoHint(Hint.VECTOR, "Vector"), new InfoHint(Hint.RRF, "RRF"),
+                new InfoHint(Hint.LAYA_SCORES, "relevant · answers · injection"),
+                new InfoHint(Hint.INJECTION, "Prompt injection"));
+        learn.addClassNames("flex", "flex-wrap", "items-center", "gap-1");
+        list.add(learn);
         if (a.sources().isEmpty()) list.add(muted("No passage was found."));
         for (Source s : a.sources()) list.add(source(s));
         Details details = new Details("📚 Sources — " + a.usedCount() + " used of " + a.sources().size(), list);
@@ -101,6 +109,7 @@ public final class AnswerBubble {
             row.addClassNames("flex", "gap-2");
             lines.add(row);
         }
+        lines.add(new InfoHint(Hint.TRACE, "What do these numbers mean?"));
         Details details = new Details("🔬 Trace", lines);
         details.addClassName("rd-answer-section");
         return details;

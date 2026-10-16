@@ -31,7 +31,7 @@ and a planted prompt injection.
 | TC-05 | Columns per mode | Empty query, then a query in BM25 / Vector / Hybrid | List: #, Title, Source · BM25: + BM25 rank · Vector: + vector rank · Hybrid: + both + RRF |
 | TC-06 | Meaning vs keyword | "why does warm water hold less oxygen" in the 3 modes | The Henry's-law passage first; Hybrid merges both lists |
 | TC-07 | Record details | Double-click a row | 📍 cluster, collection, object UUID + how it is made, REST address · 🧱 fields and indexes · 🧮 vector (1024 numbers) · { } raw JSON |
-| TC-08 | Ask — biotech | 💬 "What does the NGG PAM sequence do for Cas9?" | Answer cites [n]; the CRISPR passage ✅ kept |
+| TC-08 | Ask — biotech | 💬 "What does PCR do?" | Answer cites [n]; the "What PCR does" passage ✅ kept |
 | TC-09 | Ask — physics, System 1 at work | 💬 "What does Newton's second law say?" | "F = m · a [1]"; Newton's laws ✅ kept, other physics passages 🚫 dropped |
 | TC-10 | Nothing kept | A question Laya finds no passage for | "System 1 found no passage…", 🧠 step "➖ not needed" |
 | TC-11 | Live progress | Ask anything | Chips move ⏳ 🗄️ → ⚡ → 🧠, then all ✅ |
@@ -40,6 +40,7 @@ and a planted prompt injection.
 | TC-14 | Detail card ✕ | Click a row in Search Data / History | Framed card; ✕ closes it and clears the selection |
 | TC-15 | A service fails | Wrong System 2 key, then ask | ⚠️ in the answer, pill 🔴, chat disabled, ⛔ on the 🧠 step |
 | TC-16 | Phone + dark | 390 px, dark, all 3 menus | No sideways scroll; cards stack; overlays for detail cards |
+| TC-17 | ℹ️ learning hints | Click ℹ️ next to a title, pill, column or term | Small dialog: what it is · what it does here · linked to · a little theory · learn more |
 
 ## Results
 
@@ -52,7 +53,7 @@ and a planted prompt injection.
 | TC-05 | ✅ list `#, Title, Source` · BM25 `+BM25` · Vector `+Vector` · Hybrid `+BM25, Vector, RRF` | |
 | TC-06 | ✅ all modes: #1 "Gases dissolving in liquids (Henry's law)" (BM25 7.88, vector 0.437); Hybrid #2 "Dissolved oxygen (DO)" | |
 | TC-07 | ✅ UUID `829abd87-…` = nameUUIDFromBytes("05-mechanics.md#1"); 1024-number vector; raw JSON | |
-| TC-08 | ✅ "The NGG PAM sequence is required for Cas9 to recognize and cut the target DNA; without the NGG PAM next to the target, Cas9 does not cut. [1]" — 1 used of 4. Note: Laya flagged "How this demo works — What is RAG" as *prompt injection* (a false positive: the passage talks about prompts) | |
+| TC-08 | ✅ "PCR makes millions of copies of one short piece of DNA in a few hours. [1]" — 2 used of 4 (re-run with the simpler question). Earlier NGG/Cas9 run: correct; Laya flagged "What is RAG" as *prompt injection* (false positive) | |
 | TC-09 | ✅ "Newton's second law states that force equals mass times acceleration (F = m·a). [1]" — 1 used of 4; gases, Beer–Lambert, ideal gas 🚫 not relevant | |
 | TC-10 | ✅ "How much current does a 2,000 W kettle draw…" → 0 kept → System 2 "not needed" (Laya judged the power passage not relevant) | |
 | TC-11 | ✅ +0.2 s 🗄️ → +0.6 s ⚡ → +5.9 s 🧠 → +11.5 s ✅ | |
@@ -61,8 +62,9 @@ and a planted prompt injection.
 | TC-14 | ✅ ✕ closes and deselects | |
 | TC-15 | ✅ unit tests (`RagServiceTest`, `ChatHistoryServiceTest`) + Local-Docker banner check | |
 | TC-16 | ✅ (Local-Docker run) | |
+| TC-17 | ✅ 6 hints on Chat, 8 per answer, on every Search Data / Key Management card; RRF dialog checked; all 17 learn-more links HTTP 200 | |
 
 **Automated tests** (`./mvnw test`, 2026-10-16): 34 tests, 0 failures — including `WeaviateIT` (real Weaviate in
 Docker).
 
-**Summary:** Local-Real 16 ✅. Render: run after deploy (see the PR).
+**Summary:** Local-Real 17 ✅. Render: run after deploy (see the PR).

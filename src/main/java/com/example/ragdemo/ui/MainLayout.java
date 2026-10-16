@@ -44,9 +44,9 @@ public class MainLayout extends AppLayout {
         addToDrawer(nav);
     }
 
-    /** "Built with" Spring Boot and Vaadin logos on the right (logos from simple-icons, CC0; WebP). */
+    /** "Built with" Spring AI and Vaadin logos on the right (WebP; Spring AI logo from spring.io, Vaadin from simple-icons). */
     private static Div builtWith() {
-        Div logos = new Div(logo("icons/spring-boot.webp", "Spring Boot", "https://spring.io/projects/spring-boot"),
+        Div logos = new Div(logo("icons/spring-ai.webp", "Spring AI", "https://spring.io/projects/spring-ai"),
                 logo("icons/vaadin.webp", "Vaadin", "https://vaadin.com"));
         logos.addClassNames("rd-built-with", "flex", "items-center", "gap-3", "ml-auto");
         return logos;

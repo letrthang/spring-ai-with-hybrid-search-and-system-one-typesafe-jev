@@ -68,7 +68,7 @@ public class RecordDialog extends AppDialog {
                 new String[]{"From file", "src/main/resources/sample-data/" + hit.source() + " · section " + hit.chunkNo()},
                 new String[]{"Created / updated", time(r.createdAt()) + " / " + time(r.updatedAt())},
                 new String[]{"REST address", r.cluster() + "/v1/objects/" + r.collection() + "/" + r.uuid()}));
-        return section("📍 Where the record lives", rows);
+        return section("📍 Where the record lives", Hint.RECORD, rows);
     }
 
     // ------------------------------------------------------------------ 🧱 data structure
@@ -79,7 +79,7 @@ public class RecordDialog extends AppDialog {
         for (String[] f : SCHEMA) rows.add(new String[]{f[0], f[1] + " · " + f[2]});
         Div table = table(rows);
         table.getChildren().findFirst().ifPresent(header -> header.addClassName("font-semibold"));
-        return section("🧱 Data structure — collection " + DemoDocCollection.NAME, table);
+        return section("🧱 Data structure — collection " + DemoDocCollection.NAME, Hint.SCHEMA, table);
     }
 
     // ------------------------------------------------------------------ 🧮 vector
@@ -90,7 +90,7 @@ public class RecordDialog extends AppDialog {
                 + preview(r.vector(), 8);
         Span span = new Span(text);
         span.addClassNames("text-sm", "break-all");
-        return section("🧮 Vector", span);
+        return section("🧮 Vector", Hint.EMBEDDING, span);
     }
 
     // ------------------------------------------------------------------ { } raw record
@@ -105,15 +105,15 @@ public class RecordDialog extends AppDialog {
         json.put("vector", r.vector() == null ? null : "[" + preview(r.vector(), 4) + ", … " + r.vector().length + " numbers]");
         Pre pre = new Pre(JSON.writerWithDefaultPrettyPrinter().writeValueAsString(json));
         pre.addClassNames("rd-json", "m-0");
-        return section("{ } Raw record (as stored in Weaviate)", pre);
+        return section("{ } Raw record (as stored in Weaviate)", Hint.RECORD, pre);
     }
 
     // ------------------------------------------------------------------ helpers
 
-    private static Div section(String title, Component content) {
+    private static Div section(String title, Hint hint, Component content) {
         H3 heading = new H3(title);
         heading.addClassNames("m-0", "text-sm");
-        Div section = new Div(heading, content);
+        Div section = new Div(InfoHint.with(heading, hint), content);
         section.addClassNames("rd-record-section", "flex", "flex-col", "gap-2", "p-3");
         return section;
     }

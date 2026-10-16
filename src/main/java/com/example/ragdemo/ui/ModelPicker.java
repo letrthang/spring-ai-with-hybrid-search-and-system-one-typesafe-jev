@@ -49,7 +49,7 @@ public class ModelPicker extends Div {
         Span label = new Span("Models, tried in order (the first that answers wins)");
         label.addClassNames("text-sm", "font-semibold");
         chosenList.addClassNames("flex", "flex-col", "gap-1");
-        add(label, chosenList, combo);
+        add(InfoHint.with(label, Hint.MODELS), chosenList, combo);
         addClassNames("flex", "flex-col", "gap-2", "w-full");
         showChosen();
         addAttachListener(e -> load());

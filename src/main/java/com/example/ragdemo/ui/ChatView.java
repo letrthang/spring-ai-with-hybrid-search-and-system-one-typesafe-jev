@@ -61,7 +61,7 @@ public class ChatView extends Div {
     static final int RECHECK_SECONDS = 30;
     static final int MAX_QUESTION = 2000;
     static final List<String> EXAMPLES = List.of(
-            "What does the NGG PAM sequence do for Cas9?",
+            "What does PCR do?",
             "Why does warm water hold less oxygen than cold water?",
             "What does Newton's second law say?");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -104,7 +104,7 @@ public class ChatView extends Div {
                 + "only the useful ones, 🧠 System 2 writes the answer. Open 🔀 Data flow under an answer to see "
                 + "every step.");
         intro.addClassNames("rd-muted", "m-0");
-        add(new H2("💬 Chat"), intro, statusRow(), banner, conversationCard(), questionCard(), historyCard());
+        add(InfoHint.with(new H2("💬 Chat"), Hint.RAG), intro, statusRow(), banner, conversationCard(), questionCard(), historyCard());
         banner.addClassNames("rd-warning", "p-3", "flex", "flex-wrap", "gap-2", "items-center");
         banner.setVisible(false);
         applyEnabled();
@@ -118,11 +118,15 @@ public class ChatView extends Div {
         for (Service s : Service.values()) {
             StatusPill pill = new StatusPill(s);
             pills.put(s, pill);
-            row.add(pill);
+            row.add(InfoHint.with(pill, switch (s) {
+                case WEAVIATE -> Hint.WEAVIATE;
+                case SYSTEM1 -> Hint.SYSTEM1;
+                case SYSTEM2 -> Hint.SYSTEM2;
+            }));
         }
         Span every = new Span("re-checked every " + RECHECK_SECONDS + " s");
         every.addClassNames("rd-muted", "text-xs");
-        row.add(every);
+        row.add(every, new InfoHint(Hint.FAIL_CLOSED, "status"));
         return row;
     }
 
@@ -183,6 +187,7 @@ public class ChatView extends Div {
             steps.put(stage, chip);
             stepRow.add(chip);
         }
+        stepRow.add(new InfoHint(Hint.PROGRESS));
         stepRow.addClassNames("flex", "flex-wrap", "gap-2", "items-center");
         stepRow.setVisible(false);    // appears with the first question, then keeps the last outcome
         resetSteps();
@@ -228,7 +233,7 @@ public class ChatView extends Div {
         fullScreen.addThemeVariants(ButtonVariant.TERTIARY);
         fullScreen.getElement().setAttribute("title", "Full screen (Esc to exit)");
         fullScreen.getElement().setAttribute("aria-label", "Full screen");
-        Div left = new Div(title, sessionCount);
+        Div left = new Div(title, new InfoHint(Hint.HISTORY), sessionCount);
         left.addClassNames("flex", "gap-2", "items-center");
         Div right = new Div(hint, fullScreen);
         right.addClassNames("flex", "gap-2", "items-center");
@@ -308,7 +313,7 @@ public class ChatView extends Div {
         if (notReady.isEmpty()) return;
         Span lead = new Span("⚠️ Chat is disabled until every service is 🟢:");
         lead.addClassName("font-semibold");
-        banner.add(lead);
+        banner.add(lead, new InfoHint(Hint.FAIL_CLOSED));
         for (ServiceStatus s : notReady) banner.add(new Span(s.service().label + " — " + s.reason() + "."));
         if (notReady.stream().anyMatch(s -> s.reason().contains("Key Management"))) {
             banner.add(new RouterLink("🔑 Open Key Management", KeyManagementView.class));

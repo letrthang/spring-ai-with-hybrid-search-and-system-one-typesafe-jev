@@ -63,7 +63,7 @@ sequenceDiagram
 
 1. **Ask.** The user types a question and presses **Ask**. The chat box is disabled while the app works.
 2. **Retrieve — two ways at once.**
-   - **BM25** finds passages that share the *words* of the question (good for exact names and codes such as `Cas9` or `NGG`).
+   - **BM25** finds passages that share the *words* of the question (good for exact names and codes such as `PCR` or `Cas9`).
    - **nearText** finds passages with the same *meaning*, even with other words ("warm water holds less oxygen" ≈ "gas solubility falls as temperature rises").
      Weaviate turns the text into a vector itself (its built-in vectorizer), so we need no embedding model.
 3. **Fuse (RRF).** The two lists are merged with *Reciprocal Rank Fusion*: each passage gets
@@ -109,12 +109,12 @@ step needs one".
 
 ## 5. Vector vs BM25 vs hybrid
 
-Example collection: *(A)* "Cas9 only cuts where the target is followed by the PAM sequence `NGG`", *(B)* "Warm liquids
+Example collection: *(A)* "PCR makes millions of copies of one short piece of DNA", *(B)* "Warm liquids
 hold less dissolved gas than cold ones (Henry's law)".
 
 | Question | BM25 (words) | Vector (meaning) | Hybrid (RRF) |
 |---|---|---|---|
-| "what is NGG for Cas9" | ✅ (A) — exact code | 🟠 a general "DNA" passage may rank close | ✅ (A) — top of BM25 |
+| "what does PCR do" | ✅ (A) — exact word "PCR" | 🟠 a general "DNA" passage may rank close | ✅ (A) — top of BM25 |
 | "why does a warm pond run short of oxygen" | ❌ few shared words | ✅ (B) — same meaning | ✅ (B) — top of vector |
 
 Each method misses something; the fused list gets both right. That is why the demo runs both and shows both ranks in
