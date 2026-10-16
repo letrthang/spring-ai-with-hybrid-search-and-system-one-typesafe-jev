@@ -1,0 +1,30 @@
+server:
+  # Render sets PORT; locally the app runs on 8080
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: ragdemo
+  threads:
+    virtual:
+      enabled: true   # blocking calls (Weaviate, Laya, OpenRouter) run on virtual threads
+  datasource:
+    # A local FILE database: keys survive a local restart. On Render the disk is not persistent,
+    # so a restart / redeploy starts empty and the keys are entered again in Key Management.
+    url: jdbc:h2:file:./data/ragdemo;AUTO_SERVER=FALSE
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+vaadin:
+  launch-browser: false
+  allowed-packages: com.vaadin,org.vaadin,com.example.ragdemo
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
