@@ -26,6 +26,11 @@ import java.util.regex.Pattern;
  *       question?</li>
  * </ul>
  * 2 Laya calls to verify, 1 to reuse. If Laya is busy or down, the answer is simply not learned (never an error).
+ *
+ * <p><b>Wording matters:</b> Laya was trained on "Does this passage contain the answer to the question: …". Probed on
+ * the public route: "Does this text answer the question: …" scored a correct answer 0.00 (the same answer, trained
+ * wording: 0.95); "Does this passage support this answer: …" scored an unrelated passage 0.75 (trained wording on the
+ * cited passage: 0.91 related, 0.00 unrelated). So every check here uses the trained wording.
  */
 @Component
 public class AnswerVerifier {
@@ -35,8 +40,8 @@ public class AnswerVerifier {
     public static final double MIN_ANSWERS = 0.70;
     public static final double MIN_GROUNDED = 0.55;
     public static final double MAX_INJECTION = 0.30;
-    /** How much of the answer goes into a Laya instruction (the request must stay under 2 KB). */
-    static final int ANSWER_IN_QUESTION = 300;
+    /** Laya's trained wording (the same as for passages). */
+    static final String CONTAINS_ANSWER = "Does this passage contain the answer to the question: ";
 
     private static final Pattern CITATION = Pattern.compile("\\[(\\d+)]");
     private static final List<String> DONT_KNOW = List.of("don't know", "do not know", "không biết",
@@ -62,17 +67,17 @@ public class AnswerVerifier {
         if (cited.isEmpty()) return no("learn.reason.noCitation");
         try {
             Map<String, String> q = new LinkedHashMap<>();
-            q.put("answers", "Does this text answer the question: " + question);
+            q.put("answers", CONTAINS_ANSWER + question);
             q.put("injection", LayaClient.INJECTION_QUESTION);
-            Map<String, Double> a = laya.ask(answer, q);
+            Map<String, Double> a = laya.ask(withoutCitations(answer), q);
             double answers = a.get("answers");
             double injection = a.get("injection");
             if (injection >= MAX_INJECTION) return new Verdict(false, Msg.of("learn.reason.injection"), answers, null, injection);
             if (answers < MIN_ANSWERS) return new Verdict(false, Msg.of("learn.reason.notAnswer"), answers, null, injection);
 
             String passage = passages.get(cited.getFirst() - 1);   // the first passage the answer cites
-            double grounded = laya.ask(passage, Map.of("grounded",
-                    "Does this passage support this answer: " + shorten(answer))).get("grounded");
+            // grounded: the passage the answer cites must itself contain the answer to the question
+            double grounded = laya.ask(passage, Map.of("grounded", CONTAINS_ANSWER + question)).get("grounded");
             if (grounded < MIN_GROUNDED) {
                 return new Verdict(false, Msg.of("learn.reason.notGrounded"), answers, grounded, injection);
             }
@@ -86,9 +91,9 @@ public class AnswerVerifier {
     /** May a learned answer be reused for this (new, similar) question? Returns Laya's "answers" score, or null. */
     public Double fits(String question, String storedAnswer) {
         Map<String, String> q = new LinkedHashMap<>();
-        q.put("answers", "Does this text answer the question: " + question);
+        q.put("answers", CONTAINS_ANSWER + question);
         q.put("injection", LayaClient.INJECTION_QUESTION);
-        Map<String, Double> a = laya.ask(storedAnswer, q);
+        Map<String, Double> a = laya.ask(withoutCitations(storedAnswer), q);
         return a.get("injection") < MAX_INJECTION ? a.get("answers") : null;
     }
 
@@ -108,8 +113,9 @@ public class AnswerVerifier {
         return DONT_KNOW.stream().anyMatch(a::contains);
     }
 
-    private static String shorten(String text) {
-        return text.length() <= ANSWER_IN_QUESTION ? text : text.substring(0, ANSWER_IN_QUESTION) + "…";
+    /** "… each day. [2]" → "… each day." — the markers mean nothing to Laya. */
+    static String withoutCitations(String answer) {
+        return CITATION.matcher(answer).replaceAll("").replaceAll("\\s+([.,;:])", "$1").replaceAll(" {2,}", " ").strip();
     }
 
     private static Verdict no(String key) {

@@ -33,7 +33,7 @@ class AnswerVerifierTest {
         var v = verifier(0.9, 0.01, 0.8).verify("What does PCR do?", "PCR copies a piece of DNA [1].", PASSAGES);
         assertThat(v.keep()).isTrue();
         assertThat(v.reason().key()).isEqualTo("learn.reason.verified");
-        assertThat(states).containsExactly("PCR copies a piece of DNA [1].", "PCR copies DNA.");   // answer, then [1]
+        assertThat(states).containsExactly("PCR copies a piece of DNA.", "PCR copies DNA.");   // answer (no [n]), then [1]
     }
 
     @Test
@@ -68,5 +68,23 @@ class AnswerVerifierTest {
     @Test
     void citationsAreTheRealPassageNumbersInOrder() {
         assertThat(AnswerVerifier.citations("A [2], B [1] and [2] again, [9] none.", 3)).containsExactly(2, 1);
+    }
+
+    @Test
+    void everyCheckUsesLayasTrainedWording() {
+        List<String> asked = new ArrayList<>();
+        var v = new AnswerVerifier(new LayaClient(null) {
+            @Override
+            public Map<String, Double> ask(String state, Map<String, String> questions) {
+                asked.addAll(questions.values());
+                return questions.containsKey("grounded") ? Map.of("grounded", 0.9) : Map.of("answers", 0.9, "injection", 0.0);
+            }
+        });
+        v.verify("What does PCR do?", "PCR copies DNA [1].", PASSAGES);
+        v.fits("What does PCR do?", "PCR copies DNA [1].");
+        assertThat(asked).filteredOn(q -> !q.equals(LayaClient.INJECTION_QUESTION))
+                .allMatch(q -> q.equals("Does this passage contain the answer to the question: What does PCR do?"));
+        assertThat(AnswerVerifier.withoutCitations("each day. [2]")).isEqualTo("each day.");
+        assertThat(AnswerVerifier.withoutCitations("A [1] and B [2], done.")).isEqualTo("A and B, done.");
     }
 }
