@@ -34,6 +34,7 @@ public enum Hint {
     EMBEDDING("https://en.wikipedia.org/wiki/Word_embedding", "VECTOR", "SCHEMA"),
     KEYS(null, "WEAVIATE", "SYSTEM2", "FAIL_CLOSED", "OWN_KEYS"),
     OWN_KEYS(null, "KEYS", "WEAVIATE", "SYSTEM2"),
+    DATABASE("https://www.h2database.com/html/main.html", "HISTORY", "KEYS"),
     MODELS("https://openrouter.ai/models", "SYSTEM2", "TRACE");
 
     /** Where to read more (may be null). */
