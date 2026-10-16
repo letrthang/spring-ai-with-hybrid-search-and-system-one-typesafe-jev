@@ -108,6 +108,14 @@ class WeaviateIT {
         assertThat(found).isEmpty();
         assertThat(health.check().isReady()).isTrue();
 
+        // 🧱 Schema dialog: GET /v1/schema/DemoDoc, read live — every field, lang filterable for the language filter
+        var schema = new WeaviateSchema(keys).fetch();
+        assertThat(schema.collection()).isEqualTo(DemoDocCollection.NAME);
+        assertThat(schema.fields()).extracting(WeaviateSchema.Field::name)
+                .contains("title", "body", "source", "chunkNo", "lang");
+        assertThat(schema.fields()).filteredOn(f -> f.name().equals("lang")).singleElement()
+                .satisfies(f -> assertThat(f.filterable()).isTrue());
+
         // keyword question: BM25 finds the CRISPR passage by its exact terms (the Vietnamese / Japanese copies share
         // "Cas9", "PAM", "NGG", so BM25's #1 may be one of them; the fused #1 is the English one)
         HybridRetriever.Result keyword = retriever.search("Cas9 PAM NGG", HybridRetriever.Mode.HYBRID, 4);
