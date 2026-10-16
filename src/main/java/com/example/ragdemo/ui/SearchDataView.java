@@ -136,11 +136,15 @@ public class SearchDataView extends Div {
                 .setTextAlign(ColumnTextAlign.END);
         grid.addColumn(Hit::title).setHeader(InfoHint.with(new Span("Title"), Hint.CHUNKS)).setFlexGrow(4);
         grid.addColumn(Hit::source).setHeader(InfoHint.with(new Span("Source"), Hint.RECORD)).setFlexGrow(2);
-        bm25Column = grid.addColumn(h -> rank(h.bm25Rank(), h.bm25Score(), "%.2f")).setHeader(InfoHint.with(new Span("BM25 rank · score"), Hint.BM25))
+        // every score cell is a clickable lesson chip: "#1 · 9.81 ℹ️"
+        bm25Column = grid.addComponentColumn(h -> InfoHint.chip(rank(h.bm25Rank(), h.bm25Score(), "%.2f"), Hint.BM25))
+                .setHeader(InfoHint.with(new Span("BM25 rank · score"), Hint.BM25))
                 .setFlexGrow(1);
-        vectorColumn = grid.addColumn(h -> rank(h.vectorRank(), h.vectorDistance(), "%.3f"))
+        vectorColumn = grid.addComponentColumn(h -> InfoHint.chip(rank(h.vectorRank(), h.vectorDistance(), "%.3f"),
+                        Hint.VECTOR))
                 .setHeader(InfoHint.with(new Span("Vector rank · distance"), Hint.VECTOR)).setFlexGrow(1);
-        rrfColumn = grid.addColumn(h -> h.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f", h.rrfScore()))
+        rrfColumn = grid.addComponentColumn(h -> InfoHint.chip(
+                        h.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f", h.rrfScore()), Hint.RRF))
                 .setHeader(InfoHint.with(new Span("RRF score"), Hint.RRF)).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         showScoreColumns(null);
         grid.getColumns().forEach(c -> c.setResizable(true));

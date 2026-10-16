@@ -185,7 +185,11 @@ public class ChatView extends Div {
             Span chip = new Span();
             chip.addClassNames("rd-status", "rd-step");
             steps.put(stage, chip);
-            stepRow.add(chip);
+            stepRow.add(InfoHint.with(chip, switch (stage) {
+                case SEARCH -> Hint.WEAVIATE;
+                case SYSTEM1 -> Hint.SYSTEM1;
+                case SYSTEM2 -> Hint.SYSTEM2;
+            }));
         }
         stepRow.add(new InfoHint(Hint.PROGRESS));
         stepRow.addClassNames("flex", "flex-wrap", "gap-2", "items-center");
@@ -198,10 +202,10 @@ public class ChatView extends Div {
     }
 
     private Div historyCard() {
-        sessions.addColumn(s -> TIME.format(s.getStartedAt())).setHeader("Started").setWidth("11em").setFlexGrow(0);
-        sessions.addColumn(ChatSession::getTitle).setHeader("Title").setFlexGrow(3);
-        sessions.addColumn(ChatSession::getMessageCount).setHeader("Messages").setWidth("7em").setFlexGrow(0);
-        sessions.addColumn(s -> TIME.format(s.getLastMessageAt())).setHeader("Last message").setWidth("11em")
+        sessions.addColumn(s -> TIME.format(s.getStartedAt())).setHeader(InfoHint.with(new Span("Started"), Hint.HISTORY)).setWidth("12em").setFlexGrow(0);
+        sessions.addColumn(ChatSession::getTitle).setHeader(InfoHint.with(new Span("Title"), Hint.HISTORY)).setFlexGrow(3);
+        sessions.addColumn(ChatSession::getMessageCount).setHeader(InfoHint.with(new Span("Messages"), Hint.HISTORY)).setWidth("7em").setFlexGrow(0);
+        sessions.addColumn(s -> TIME.format(s.getLastMessageAt())).setHeader(InfoHint.with(new Span("Last message"), Hint.HISTORY)).setWidth("11em")
                 .setFlexGrow(0);
         sessions.getColumns().forEach(c -> c.setResizable(true));
         sessions.addThemeVariants(GridVariant.ROW_STRIPES);

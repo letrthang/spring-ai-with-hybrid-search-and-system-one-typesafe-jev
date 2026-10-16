@@ -97,7 +97,9 @@ public final class DataFlowDiagram {
         Paragraph summary = new Paragraph(hop.summary().isBlank() ? "(nothing more to show)" : hop.summary());
         summary.addClassNames("rd-flow-summary", "m-0");
 
-        NativeDetails step = new NativeDetails(line, summary);
+        Div opened = new Div(summary, InfoHint.chip("About " + hop.to().label, InfoHint.forActor(hop.to())));
+        opened.addClassNames("flex", "flex-col", "items-start", "gap-1", "px-2", "pb-2");
+        NativeDetails step = new NativeDetails(line, opened);
         step.addClassName("rd-flow-step");
         step.getElement().setAttribute("title", hop.from().label + " → " + hop.to().label + ": " + hop.label());
         return step;

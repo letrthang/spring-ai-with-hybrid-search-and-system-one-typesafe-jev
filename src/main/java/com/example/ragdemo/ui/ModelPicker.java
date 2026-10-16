@@ -131,7 +131,7 @@ public class ModelPicker extends Div {
                         showChosen();
                     }));
             buttons.addClassNames("flex", "shrink-0");
-            Div row = new Div(label, buttons);
+            Div row = new Div(label, new InfoHint(Hint.MODELS), buttons);
             row.addClassNames("rd-model-row", "flex", "items-center", "gap-2", "px-2", "py-1");
             if (info != null && !info.free()) row.addClassName("rd-model-paid");
             chosenList.add(row);

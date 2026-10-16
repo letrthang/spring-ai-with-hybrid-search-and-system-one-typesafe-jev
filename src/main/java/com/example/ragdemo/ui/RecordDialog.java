@@ -122,8 +122,10 @@ public class RecordDialog extends AppDialog {
         Div table = new Div();
         table.addClassNames("rd-record-table", "text-sm");
         for (String[] row : rows) {
-            Span key = new Span(row[0]);
-            key.addClassNames("rd-muted");
+            Span keyText = new Span(row[0]);
+            keyText.addClassNames("rd-muted");
+            Hint hint = hintFor(row[0]);
+            Div key = hint == null ? new Div(keyText) : InfoHint.with(keyText, hint);
             Span value = new Span(row[1]);
             value.addClassNames("break-all");
             Div line = new Div(key, value);
@@ -131,6 +133,19 @@ public class RecordDialog extends AppDialog {
             table.add(line);
         }
         return table;
+    }
+
+    /** The lesson for a row of the record dialog, by its label. */
+    static Hint hintFor(String key) {
+        return switch (key) {
+            case "Cluster" -> Hint.WEAVIATE;
+            case "Collection", "source", "chunkNo" -> Hint.SCHEMA;
+            case "Object UUID (key)", "How the UUID is made", "Created / updated", "REST address" -> Hint.RECORD;
+            case "From file" -> Hint.CHUNKS;
+            case "title", "body" -> Hint.BM25;
+            case "(vector)" -> Hint.EMBEDDING;
+            default -> null;
+        };
     }
 
     private static String preview(float[] v, int n) {

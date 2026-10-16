@@ -108,6 +108,16 @@ public class InfoHint extends Button {
         return Hint.TRACE;
     }
 
+    /** The lesson for a lifeline / part of the flow. */
+    public static Hint forActor(com.example.ragdemo.rag.FlowRecorder.Actor actor) {
+        return switch (actor) {
+            case USER, APP -> Hint.RAG;
+            case WEAVIATE -> Hint.WEAVIATE;
+            case SYSTEM1 -> Hint.SYSTEM1;
+            case SYSTEM2 -> Hint.SYSTEM2;
+        };
+    }
+
     /** A heading or label followed by its ℹ️ button, kept on one line. */
     public static Div with(com.vaadin.flow.component.Component labelled, Hint hint) {
         Div row = new Div(labelled, new InfoHint(hint));
