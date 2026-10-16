@@ -24,7 +24,7 @@ class ChatHistoryServiceTest {
         flow.call(FlowRecorder.Actor.USER, FlowRecorder.Actor.APP, Msg.of("flow.question"), 0, 0, Msg.raw(question));
         return new RagAnswer(question, text,
                 List.of(new RagAnswer.Source("T", "02-aerators.md", 2, "body", 1, 2, 0.03, 0.9, 0.9, 0.0, "kept", 1)),
-                List.of(new RagAnswer.TraceLine("trace.step.total", Msg.of("trace.total", 10))), flow.hops(), "m:free", 10, failure);
+                List.of(new RagAnswer.TraceLine("trace.step.total", Msg.of("trace.total", 10))), flow.hops(), "m:free", 10, failure, null, null);
     }
 
     @Test

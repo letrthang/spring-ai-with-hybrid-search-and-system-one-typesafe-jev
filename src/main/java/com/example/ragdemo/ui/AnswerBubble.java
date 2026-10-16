@@ -45,11 +45,37 @@ public final class AnswerBubble {
             text.addClassName("rd-markdown");
             bubble.add(text);
             if (a.nothingKept()) bubble.add(InfoHint.chip(Tr.t("answer.whyNoAnswer"), Hint.LAYA_SCORES));
+            Button learning = learningChip(a);
+            if (learning != null) bubble.add(learning);
         }
         Div flowRow = new Div(dataFlowButton(a), new InfoHint(Hint.DATA_FLOW));
         flowRow.addClassNames("flex", "items-center", "gap-1");
         bubble.add(sources(a), trace(a), flowRow);
         return bubble;
+    }
+
+    // ------------------------------------------------------------------ 🧠 self-learning
+
+    /** ♻️ reused a learned answer · 🧠 learned ✅ · 🧠 not learned (why) — null when learning did not apply. */
+    static Button learningChip(RagAnswer a) {
+        if (a.reused()) {
+            RagAnswer.Reuse r = a.reuse();
+            Button chip = InfoHint.chip(Tr.t("learn.reusedChip", String.format(java.util.Locale.ROOT, "%.3f", r.distance()),
+                    String.format(java.util.Locale.ROOT, "%.2f", r.answers())), Hint.LEARNING, "rd-learn-chip", "rd-learn-reused");
+            chip.getElement().setAttribute("title", Tr.t("learn.reusedFrom", r.learnedQuestion()));
+            return chip;
+        }
+        RagAnswer.Learning l = a.learning();
+        if (l == null) return null;
+        if (l.saved()) {
+            return InfoHint.chip(Tr.t("learn.savedChip", two(l.answers()), two(l.grounded()), two(l.injection())),
+                    Hint.LEARNING, "rd-learn-chip", "rd-learn-saved");
+        }
+        return InfoHint.chip(Tr.t("learn.notSavedChip", Tr.t(l.reason())), Hint.LEARNING, "rd-learn-chip");
+    }
+
+    private static String two(Double d) {
+        return d == null ? "—" : String.format(java.util.Locale.ROOT, "%.2f", d);
     }
 
     // ------------------------------------------------------------------ 📚 Sources

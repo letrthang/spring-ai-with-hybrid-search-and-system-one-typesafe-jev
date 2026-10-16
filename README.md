@@ -138,6 +138,14 @@ POST https://letrthang-aimtas-system-one-laya-slm.hf.space/demo/systemone
 
 > `localhost` URLs only work when the web app runs on your own machine, not on Render.
 
+## 🧠 Self-learning
+
+The app learns from its own answers — carefully. After an answer, ⚡ **System 1 verifies it** (does it answer the
+question, is it backed by a passage it cites, no prompt injection); only then is the question + answer saved to a
+separate Weaviate collection, **`LearnedAnswer`**. When someone later asks a very similar question in the same
+language, System 1 checks the stored answer fits the new question and the app returns it at once — ♻️ no System 2 call.
+The 🧭 diagram shows both lines; 🔎 Search Data → 🧠 Learned answers lists (and forgets) what was learned.
+
 ## When a service is down
 
 This is a demo of RAG with **all three services**, so all three are **required**: ⚡ **System 1**, 🧠 **System 2** and 🗄️ **Weaviate**. The 💬 Chat page shows a status pill for each: 🟢 Ready, 🟡 Waking up / busy / no data, or 🔴 Down.

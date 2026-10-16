@@ -93,6 +93,20 @@ sequenceDiagram
 | 🔬 **Trace** | the time of each step, which model answered, tokens used |
 | 🔀 **Data flow** | a dialog with the sequence diagram above, drawn from what really happened, with ms on each arrow |
 
+### Self-learning: ♻️ reuse first, 🧠 learn last
+
+```
+question ─► ♻️ closest LearnedAnswer (same language, Weaviate nearText on the question)
+             │ distance < 0.15 and ⚡ "does this stored answer answer THIS question?" ≥ 0.70
+             ├── yes ─► answer + its original sources, marked ♻️ — System 2 not called
+             └── no ──► the normal pipeline ─► answer ─► ⚡ verify ─► 🧠 save to LearnedAnswer
+```
+
+An answer is **learned** only if it cites a passage [n], ⚡ says it answers the question (≥ 0.70), a cited passage
+supports it (≥ 0.55) and it gives no orders to an AI (injection < 0.30) — `AnswerVerifier`. Learned answers live in
+their own collection, never mixed with the source passages in `DemoDoc`: generated text must not become a "fact".
+If System 1 is busy, the answer is simply not learned (it is still shown).
+
 ## 4. System 1 vs System 2
 
 | | ⚡ System 1 (Laya) | 🧠 System 2 (OpenRouter LLM) |
@@ -136,43 +150,56 @@ src/main/java/com/example/ragdemo/
 │   ├── HybridRetriever.java       Spring AI DocumentRetriever: BM25 + nearText in parallel + RRF
 │   ├── RrfFusion.java             1/(60+rank), the whole fusion in one small class
 │   ├── WeaviateRecords.java       one stored object by UUID (fields, vector, times) for 🧾 record details
-│   └── WeaviateHealth.java        🟢 N passages / 🟡 empty / 🔴 down or bad key
+│   ├── WeaviateSchema.java        GET /v1/schema/DemoDoc, read live for the 🧱 Schema dialog
+│   ├── Lang.java                  en / vi / ja of a question (by script) → searches keep to that language
+│   ├── LearnedAnswerCollection.java  🧠 the LearnedAnswer collection (vector from the question only)
+│   ├── LearnedAnswers.java        🧠 closest learned question · save (one per question) · list · forget all
+│   └── WeaviateHealth.java        🟢 N passages / 🟡 empty or loaded by an older version / 🔴 down or bad key
 ├── system1/                       ⚡ Laya
-│   ├── LayaClient.java            POST /demo/systemone: three yes/no questions → three probabilities
+│   ├── LayaClient.java            POST /demo/systemone via RestClient: yes/no questions about a text → probabilities
+│   ├── AnswerVerifier.java        ⚡ checks ANSWERS: before learning (answers · grounded · injection) and before reuse
 │   ├── SystemOneFilter.java       Spring AI DocumentPostProcessor: score every passage, keep / drop
 │   ├── SystemOneReranker.java     Spring AI DocumentPostProcessor: sort the kept ones by "answers", best 3
 │   └── SystemOneHealth.java       GET /health
 ├── system2/                       🧠 OpenRouter
-│   ├── SystemTwoClient.java       Spring AI OpenAiChatModel built per call, models tried in order
+│   ├── SystemTwoClient.java       Spring AI OpenAiChatModel; one OpenAI client pair per key (stale ones closed first)
 │   ├── OpenRouterModels.java      the model list (🆓 free first, 💲 paid) with context size and price
 │   └── SystemTwoHealth.java       GET /key (OpenRouter) or /models — costs no tokens
 ├── rag/                           🔗 the pipeline
-│   ├── RagService.java            steps 2–7 above, top to bottom; logs every step (DEBUG)
+│   ├── RagService.java            the steps above, top to bottom (+ ♻️ reuse first, 🧠 learn last); logs every step
 │   ├── FlowRecorder.java          collects FlowHop records for 🔀 Data flow
-│   ├── RagAnswer.java             text + sources + trace + flow (+ failure)
+│   ├── RagAnswer.java             text + sources + trace + flow (+ failure, ♻️ reuse, 🧠 learning)
 │   ├── Msg.java                   a text as key + arguments, translated only when shown (see i18n below)
 │   ├── ServiceStatus.java         🟢 / 🟡 / 🔴 + reason, for the pills
 │   ├── SystemDownException.java   a required service failed → stop
-│   └── Http.java                  the one JDK HttpClient (health checks, Laya)
+│   └── Http.java                  the one JDK HttpClient (one pool) + RestClient on top of it
+├── db/                            💾 the app's own database
+│   └── DatabaseBrowser.java       tables from INFORMATION_SCHEMA, pages of rows, parameterised UPDATE / DELETE
 ├── chat/                          💬 history in H2
 │   ├── ChatSession.java, ChatMessage.java (+ repositories)
 │   └── ChatHistoryService.java    saves each turn; the answer is kept as JSON (sources, trace, flow)
 └── ui/                            🖥️ Vaadin
     ├── MainLayout.java            the page: header (title, ocean-wave border, logos, 🌐 language) + left drawer
-    ├── ChatView.java              💬 status pills, question, progress steps, answers, 📂 History
+    ├── ChatView.java              💬 status pills, 🧭 diagram, question, progress steps, answers, 📂 History
+    ├── SystemMap.java             server side of <rd-system-map> (src/main/frontend/rd-system-map.ts, Lit)
     ├── AnswerBubble.java          answer + 📚 Sources + 🔬 Trace + 🔀 Data flow button
     ├── DataFlowDiagram.java       the sequence diagram, plain HTML/CSS
     ├── SearchDataView.java        🔎 BM25 / Vector / Hybrid over Weaviate, master-detail with DetailCard
-    ├── RecordDialog.java          🧾 one Weaviate record: where it lives, its schema, its vector
-    ├── KeyManagementView.java     🔑 the keys, with 🧪 Test buttons
+    ├── RecordDialog.java          🧾 one Weaviate record, laid out like the Weaviate console (JSON / fields)
+    ├── SchemaDialog.java          🧱 the collection schema, live from /v1/schema
+    ├── LearnedCard.java           🧠 the learned answers (lazy grid, 🗑 forget all)
+    ├── DatabaseCard.java          💾 H2 tables: read, edit, delete a row
+    ├── SplitMasterDetail.java     grid | card with a draggable splitter
+    ├── KeyManagementView.java     🔑 the keys (never shown), 🧪 Test, ● online badges (StatusBadge)
     ├── ModelPicker.java           🧩 choose and order the System 2 models
     ├── Hint.java, InfoHint.java   ℹ️ the learning hints (what / does / theory / links) and their buttons
     ├── Tr.java, LanguageSetup.java  🌐 translations; every visitor starts in English
+    ├── ErrorHandling.java         every UI error logged + shown; a closed browser is not an error
     └── AppDialog.java, DetailCard.java, StatusPill.java, Background.java (virtual thread → UI.access)
 
 src/main/resources/
 ├── application.yml                defaults (keys empty → env vars or git-ignored ./application-local.yml), logging
-├── sample-data/01…14-*.md         biotech, physics, the demo itself, office notes, fish farm
+├── sample-data/{en,vi,ja}/*.md    500 passages per language: biotech, physics, RAS / fish farm, demo, office notes
 ├── vaadin-i18n/translations.properties      🇬🇧 English (default)
 ├── vaadin-i18n/translations_vi.properties   🇻🇳 Tiếng Việt
 ├── vaadin-i18n/translations_ja.properties   🇯🇵 日本語
