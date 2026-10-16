@@ -1,12 +1,38 @@
 /* The app stylesheet. Loads after Aura (RagDemoApplication), so it can override.
  * Tailwind owns layout and spacing (classes in the Java code); this file only holds what Tailwind can't express.
  * Our own classes start with "rd-" so they never clash with a Tailwind utility of the same name.
- * Colours come from Aura tokens, so light and dark both work. */
+ * Colours come from Aura tokens (with light-dark() fallbacks), so light and dark both work. */
 
 *, *::before, *::after {
     box-sizing: border-box;
 }
 
 .rd-muted {
-    color: var(--vaadin-text-color-secondary);
+    color: var(--aura-secondary-text, var(--vaadin-text-color-secondary));
 }
+
+/* ---- bento card ---- */
+.rd-card {
+    background: var(--aura-surface, light-dark(#ffffff, #14181d));
+    border: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+    border-radius: 12px;
+    box-shadow: 0 1px 2px light-dark(rgba(15, 36, 56, .06), rgba(0, 0, 0, .3));
+    min-width: 0;
+}
+
+/* ---- status pill: 🟢 / 🟡 / 🔴 + text; the colour is a second signal, the dot is the first ---- */
+.rd-status {
+    display: inline-flex;
+    align-self: flex-start;   /* hug the text inside a flex column */
+    align-items: center;
+    gap: .35em;
+    padding: .2em .7em;
+    border-radius: 999px;
+    font-size: .875em;
+    border: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+    overflow-wrap: anywhere;
+}
+.rd-status-READY   { background: light-dark(#e8f6ec, #13281b); }
+.rd-status-WAITING { background: light-dark(#fff6dd, #2d2610); }
+.rd-status-DOWN    { background: light-dark(#fdeaea, #2f1517); }
+.rd-status-UNKNOWN { background: transparent; }
