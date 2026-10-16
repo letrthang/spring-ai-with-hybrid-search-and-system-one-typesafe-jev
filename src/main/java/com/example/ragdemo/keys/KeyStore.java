@@ -33,6 +33,7 @@ public class KeyStore {
      * (2026-10-16) the free Gemma was busy (429) on every call.
      */
     public static final List<String> DEFAULT_SYSTEM2_MODELS = List.of(
+            "nvidia/nemotron-3-ultra-550b-a55b:free",   // first choice; the others take over when it is busy (429)
             "nvidia/nemotron-3-super-120b-a12b:free",
             "google/gemma-4-31b-it:free",
             "google/gemma-4-26b-a4b-it:free");
