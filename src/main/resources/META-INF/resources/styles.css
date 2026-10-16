@@ -70,10 +70,35 @@
     background: light-dark(#e8f0fe, #1c2a44);
     border: 1px solid light-dark(#c9dafc, #2c4170);
 }
+/* the answer: a ✨ badge on its top-left corner and a violet → teal gradient border, so it never looks like the
+   question (plain blue). The gradient border is two backgrounds: the card colour inside, the gradient under the border. */
 .rd-bubble-ai {
+    --rd-ai-bg: light-dark(#fbfaff, #1a1b26);
+    position: relative;
     align-self: flex-start;
-    background: light-dark(#f6f8fa, #1a1f26);
-    border: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+    margin: 12px 0 0 12px;   /* room for the badge */
+    border: 1.5px solid transparent;
+    background:
+        linear-gradient(var(--rd-ai-bg), var(--rd-ai-bg)) padding-box,
+        linear-gradient(135deg, light-dark(#8b5cf6, #a78bfa), light-dark(#06b6d4, #22d3ee)) border-box;
+    box-shadow: 0 2px 10px light-dark(rgba(139, 92, 246, .10), rgba(0, 0, 0, .35));
+}
+.rd-bubble-ai::before {
+    content: "✨";
+    position: absolute;
+    top: -13px;
+    left: -13px;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    line-height: 1;
+    border-radius: 50%;
+    background: var(--rd-ai-bg);
+    border: 1.5px solid light-dark(#8b5cf6, #a78bfa);
+    box-shadow: 0 1px 4px light-dark(rgba(139, 92, 246, .25), rgba(0, 0, 0, .4));
+    pointer-events: none;
 }
 .rd-markdown p:first-child { margin-top: 0; }
 .rd-markdown p:last-child { margin-bottom: 0; }
