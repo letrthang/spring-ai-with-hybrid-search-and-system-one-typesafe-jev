@@ -40,6 +40,11 @@ public class WeaviateConnector {
         this.keys = keys;
     }
 
+    /**
+     * Runs one piece of work with the client. A <b>stale connection</b> (the cluster or a proxy dropped it, e.g. after
+     * the Render instance slept) is closed first, then the work runs once more on a fresh client. Every call in this
+     * app is safe to repeat (searches, reads, counts; Load drops the collection first).
+     */
     public <T> T call(String what, Work<T> work) {
         WeaviateClient used = null;
         try {
@@ -48,10 +53,40 @@ public class WeaviateConnector {
         } catch (SystemDownException e) {
             throw e;
         } catch (Exception e) {
-            log.warn("🗄️ Weaviate {} failed: {}", what, Http.describe(e));
+            Exception failure = e;
+            if (used != null && staleConnection(e)) {
+                log.info("🗄️ Weaviate {}: stale connection ({}) — closing it, retrying once on a fresh client",
+                        what, Http.describe(e));
+                reset(used);   // close the stale client BEFORE opening a new one
+                try {
+                    return work.apply(client());
+                } catch (SystemDownException down) {
+                    throw down;
+                } catch (Exception retry) {
+                    failure = retry;
+                }
+            }
+            log.warn("🗄️ Weaviate {} failed: {}", what, Http.describe(failure));
             if (used != null) reset(used);   // the next call opens a fresh client
-            throw new SystemDownException(WEAVIATE, "status.weaviate.failed", what, Http.describe(e));
+            throw new SystemDownException(WEAVIATE, "status.weaviate.failed", what, Http.describe(failure));
         }
+    }
+
+    /**
+     * A broken connection rather than an answer from Weaviate: an I/O error, a reset / closed connection, or gRPC
+     * UNAVAILABLE anywhere in the cause chain. (A 4xx/5xx answer is not retried: it would fail the same way.)
+     */
+    static boolean staleConnection(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            String message = t.getMessage() == null ? "" : t.getMessage();
+            if (t instanceof java.io.IOException && !(t instanceof java.io.FileNotFoundException)) return true;
+            if (message.startsWith("UNAVAILABLE") || message.contains("Connection reset")
+                    || message.contains("connection closed") || message.contains("GOAWAY")) {
+                return true;
+            }
+            if (t.getCause() == t) break;
+        }
+        return false;
     }
 
     /**
