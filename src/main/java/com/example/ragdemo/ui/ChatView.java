@@ -79,7 +79,8 @@ public class ChatView extends Div {
     private final Span counter = new Span();
     private final Button ask = new Button("🔎 Ask");
     private final ProgressBar progress = new ProgressBar();
-    private final Span progressText = new Span("⏳ Searching Weaviate → System 1 checks the passages → System 2 writes…");
+    private final Map<RagService.Stage, Span> steps = new EnumMap<>(RagService.Stage.class);
+    private final Div stepRow = new Div();
     private final Div examples = new Div();
     private final Grid<ChatSession> sessions = new Grid<>();
     private final MasterDetailLayout historyLayout = new MasterDetailLayout();
@@ -175,12 +176,18 @@ public class ChatView extends Div {
         examples.addClassNames("flex", "flex-wrap", "gap-1", "items-center");
 
         progress.setIndeterminate(true);
-        progressText.addClassNames("rd-muted", "text-sm");
-        Div running = new Div(progress, progressText);
-        running.addClassNames("flex", "flex-col", "gap-1");
-        running.setVisible(false);   // shown by applyEnabled() while a question runs
+        progress.setVisible(false);   // shown by applyEnabled() while a question runs
+        for (RagService.Stage stage : RagService.Stage.values()) {
+            Span chip = new Span();
+            chip.addClassNames("rd-status", "rd-step");
+            steps.put(stage, chip);
+            stepRow.add(chip);
+        }
+        stepRow.addClassNames("flex", "flex-wrap", "gap-2", "items-center");
+        stepRow.setVisible(false);    // appears with the first question, then keeps the last outcome
+        resetSteps();
 
-        Div card = new Div(title, question, actions, examples, running);
+        Div card = new Div(title, question, actions, examples, progress, stepRow);
         card.addClassNames("rd-card", "p-4", "flex", "flex-col", "gap-3");
         return card;
     }
@@ -297,7 +304,7 @@ public class ChatView extends Div {
         question.setEnabled(ready && !busy);
         ask.setEnabled(ready && !busy && !question.getValue().isBlank());
         examples.setEnabled(ready && !busy);
-        progress.getParent().ifPresent(p -> p.setVisible(busy));
+        progress.setVisible(busy);
 
         List<ServiceStatus> notReady = statuses.values().stream().filter(s -> !s.isReady()).toList();
         banner.removeAll();
@@ -325,14 +332,19 @@ public class ChatView extends Div {
         if (sessionId == null) messages.removeAll();
         messages.add(AnswerBubble.question(q));
         scrollToEnd();
+        resetSteps();
+        stepRow.setVisible(true);
+        UI ui = UI.getCurrent();
         Background.run(this, () -> {
-            RagAnswer answer = rag.ask(q);
+            // each stage reports itself as it starts; paint it at once (we are on the worker thread here)
+            RagAnswer answer = rag.ask(q, progress -> ui.access(() -> showStep(progress)));
             String id = history.saveTurn(sessionId, answer);
             return new Turn(answer, id);
         }, turn -> {
             busy = false;
             sessionId = turn.sessionId();
             messages.add(AnswerBubble.answer(turn.answer()));
+            finishSteps(turn.answer());
             if (turn.answer().failed()) {
                 // the service failed during the question: show it at once; the next check turns it back on
                 show(ServiceStatus.down(turn.answer().failure().service(), turn.answer().failure().reason()));
@@ -350,6 +362,52 @@ public class ChatView extends Div {
     }
 
     private record Turn(RagAnswer answer, String sessionId) {
+    }
+
+    // ------------------------------------------------------------------ live progress: 🗄️ → ⚡ → 🧠
+
+    private static String label(RagService.Stage stage) {
+        return switch (stage) {
+            case SEARCH -> "🗄️ Weaviate · search";
+            case SYSTEM1 -> "⚡ System 1 · check passages";
+            case SYSTEM2 -> "🧠 System 2 · write answer";
+        };
+    }
+
+    private void resetSteps() {
+        steps.forEach((stage, chip) -> setStep(chip, "rd-step-waiting", "⬜ " + label(stage)));
+    }
+
+    /** Stages before the current one are done, the current one runs, the rest wait. */
+    private void showStep(RagService.Progress p) {
+        steps.forEach((stage, chip) -> {
+            int c = stage.compareTo(p.stage());
+            if (c < 0) setStep(chip, "rd-step-done", "✅ " + label(stage));
+            else if (c == 0) setStep(chip, "rd-step-active", "⏳ " + label(stage) + " — " + p.detail() + "…");
+            else setStep(chip, "rd-step-waiting", "⬜ " + label(stage));
+        });
+    }
+
+    /** After the answer: all ✅, or ⛔ on the stage whose service failed (later stages never ran). */
+    private void finishSteps(RagAnswer answer) {
+        RagService.Stage failed = !answer.failed() ? null : switch (answer.failure().service()) {
+            case WEAVIATE -> RagService.Stage.SEARCH;
+            case SYSTEM1 -> RagService.Stage.SYSTEM1;
+            case SYSTEM2 -> RagService.Stage.SYSTEM2;
+        };
+        boolean noSystemTwo = !answer.failed() && answer.model() == null;   // nothing was kept: System 2 not called
+        steps.forEach((stage, chip) -> {
+            if (failed != null && stage == failed) setStep(chip, "rd-step-failed", "⛔ " + label(stage));
+            else if (failed != null && stage.compareTo(failed) > 0) setStep(chip, "rd-step-waiting", "⬜ " + label(stage));
+            else if (noSystemTwo && stage == RagService.Stage.SYSTEM2) setStep(chip, "rd-step-waiting", "➖ " + label(stage) + " — not needed");
+            else setStep(chip, "rd-step-done", "✅ " + label(stage));
+        });
+    }
+
+    private static void setStep(Span chip, String state, String text) {
+        chip.getElement().getClassList().removeIf(c -> c.startsWith("rd-step-"));
+        chip.addClassName(state);
+        chip.setText(text);
     }
 
     private void startNewChat() {

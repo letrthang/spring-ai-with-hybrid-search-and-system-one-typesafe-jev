@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * The whole RAG flow for one question — read this class top to bottom to follow it.
@@ -76,13 +77,26 @@ public class RagService {
         this.systemTwo = systemTwo;
     }
 
+    /** The three stages a question goes through, for the live progress chips on the Chat page. */
+    public enum Stage { SEARCH, SYSTEM1, SYSTEM2 }
+
+    /** A stage has started; {@code detail} says what it is doing, e.g. "checking 4 passages". */
+    public record Progress(Stage stage, String detail) {
+    }
+
     public RagAnswer ask(String question) {
+        return ask(question, progress -> { });
+    }
+
+    /** As {@link #ask(String)}, telling {@code onProgress} each time a stage starts (called on the worker thread). */
+    public RagAnswer ask(String question, Consumer<Progress> onProgress) {
         FlowRecorder flow = new FlowRecorder();
         List<TraceLine> trace = new ArrayList<>();
         Map<String, Source> sources = new LinkedHashMap<>();   // passage id → what we know about it
         flow.call(Actor.USER, Actor.APP, "1. question", 0, 0, question);
         try {
             // ---- 2 + 3. retrieve: BM25 and nearText at the same time, merged by RRF
+            onProgress.accept(new Progress(Stage.SEARCH, "BM25 + vector search, merged by RRF"));
             long at = flow.now();
             HybridRetriever.Result found = retriever.search(question, HybridRetriever.Mode.HYBRID, HybridRetriever.TOP_K);
             flow.call(Actor.APP, Actor.WEAVIATE, "2a. BM25 (keywords)", at, found.bm25Ms(),
@@ -99,6 +113,7 @@ public class RagService {
                     + passages.size() + " passages"));
 
             // ---- 4. System 1: score every passage, keep the good ones, rerank
+            onProgress.accept(new Progress(Stage.SYSTEM1, "checking " + passages.size() + " passages"));
             at = flow.now();
             List<Document> scored = filter.score(question, passages);
             for (int i = 0; i < scored.size(); i++) {
@@ -136,6 +151,7 @@ public class RagService {
                     + prompt.text().length() + " characters");
 
             // ---- 6. System 2 writes the answer
+            onProgress.accept(new Progress(Stage.SYSTEM2, "writing the answer from " + best.size() + " passages"));
             at = flow.now();
             SystemTwoClient.Answer answer = systemTwo.generate(SYSTEM_PROMPT, prompt.text());
             flow.call(Actor.APP, Actor.SYSTEM2, "6. prompt → " + answer.model(), at, answer.ms(),
