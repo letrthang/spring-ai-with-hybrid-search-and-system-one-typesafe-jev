@@ -17,7 +17,7 @@ import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.HasDynamicTitle;
 import com.vaadin.flow.router.Route;
 
 import java.util.function.Supplier;
@@ -30,8 +30,7 @@ import java.util.function.Supplier;
  * Leaving a key field empty keeps the saved key.
  */
 @Route("keys")
-@PageTitle("Key Management · RAG demo")
-public class KeyManagementView extends Div {
+public class KeyManagementView extends Div implements HasDynamicTitle {
 
     private final KeyStore keys;
 
@@ -43,27 +42,29 @@ public class KeyManagementView extends Div {
         this.models = models;
         addClassNames("p-4", "flex", "flex-col", "gap-4", "max-w-screen-xl");
 
-        Paragraph intro = new Paragraph("Only two services need a key: Weaviate and OpenRouter. "
-                + "Keys are saved in this app's local database and read on every call. On Render the database is "
-                + "emptied on every restart, so enter them again after a restart.");
+        Paragraph intro = new Paragraph(Tr.t("keys.intro"));
         intro.addClassNames("rd-muted", "m-0");
 
         Div grid = new Div(weaviateCard(weaviate), systemTwoCard(systemTwo), systemOneCard(systemOne));
         grid.addClassNames("grid", "grid-cols-1", "lg:grid-cols-3", "gap-4");
-        add(InfoHint.with(new H2("🔑 Key Management"), Hint.KEYS), intro, grid);
+        add(InfoHint.with(new H2(Tr.t("keys.title")), Hint.KEYS), intro, grid);
+    }
+
+    @Override
+    public String getPageTitle() {
+        return Tr.t("page.keys");
     }
 
     // ------------------------------------------------------------------ the three cards
 
     private Component weaviateCard(WeaviateHealth health) {
-        TextField url = new TextField("Cluster URL (REST endpoint)");
+        TextField url = new TextField(Tr.t("keys.weaviate.url"));
         url.setValue(keys.get(KeyStore.WEAVIATE_URL));   // the saved URL, or the configured default
         url.setPlaceholder("xxxx.c0.region.gcp.weaviate.cloud");
-        PasswordField key = secretField("Admin API key", KeyStore.WEAVIATE_KEY);
+        PasswordField key = secretField(Tr.t("keys.weaviate.key"), KeyStore.WEAVIATE_KEY);
         url.setWidthFull();
 
-        return card("🗄️ Weaviate", "Required. Stores the passages; runs BM25 + vector search. "
-                        + "Use an Admin key: the app creates its collection and loads sample data.",
+        return card(Tr.t("keys.weaviate.title"), Tr.t("keys.weaviate.what"),
                 ServiceStatus.Service.WEAVIATE, health::check,
                 () -> {
                     keys.set(KeyStore.WEAVIATE_URL, url.getValue());
@@ -74,21 +75,21 @@ public class KeyManagementView extends Div {
                     keys.set(KeyStore.WEAVIATE_KEY, "");
                     url.clear();
                     refreshSecret(key, KeyStore.WEAVIATE_KEY);
-                }, "🗑 Clear",
+                }, Tr.t("keys.clear"),
                 url, key);
     }
 
     private Component systemTwoCard(SystemTwoHealth health) {
-        PasswordField key = secretField("OpenRouter API key", KeyStore.SYSTEM2_KEY);
+        PasswordField key = secretField(Tr.t("keys.system2.key"), KeyStore.SYSTEM2_KEY);
         key.setPlaceholder(keys.has(KeyStore.SYSTEM2_KEY) ? key.getPlaceholder() : "sk-or-v1-…");
         ModelPicker picker = new ModelPicker(models, keys.system2Models());
-        TextField baseUrl = new TextField("Base URL (any OpenAI-compatible endpoint)");
+        TextField baseUrl = new TextField(Tr.t("keys.system2.baseUrl"));
         baseUrl.setValue(keys.get(KeyStore.SYSTEM2_BASE_URL));
         baseUrl.setPlaceholder(KeyStore.DEFAULT_SYSTEM2_BASE_URL);
         baseUrl.setWidthFull();
-        Details advanced = new Details("Advanced: your own System 2", baseUrl);
+        Details advanced = new Details(Tr.t("keys.system2.advanced"), baseUrl);
 
-        return card("🧠 System 2 — OpenRouter", "Required. The LLM that writes the answer. Free models by default.",
+        return card(Tr.t("keys.system2.title"), Tr.t("keys.system2.what"),
                 ServiceStatus.Service.SYSTEM2, health::check,
                 () -> {
                     saveSecret(key, KeyStore.SYSTEM2_KEY);
@@ -103,23 +104,21 @@ public class KeyManagementView extends Div {
                     keys.set(KeyStore.SYSTEM2_BASE_URL, "");
                     picker.setModels(keys.system2Models());
                     baseUrl.clear();
-                }, "🔄 Defaults",
+                }, Tr.t("keys.defaults"),
                 key, picker, advanced);
     }
 
     private Component systemOneCard(SystemOneHealth health) {
-        Paragraph none = new Paragraph("Nothing to enter: the app uses the public, keyless Laya route "
-                + "(10 calls per minute).");
+        Paragraph none = new Paragraph(Tr.t("keys.system1.none"));
         none.addClassNames("m-0", "text-sm");
-        TextField url = new TextField("Your Laya URL");
+        TextField url = new TextField(Tr.t("keys.system1.url"));
         url.setValue(keys.get(KeyStore.SYSTEM1_URL));
         url.setPlaceholder(KeyStore.DEFAULT_SYSTEM1_URL);
         url.setWidthFull();
-        PasswordField key = secretField("Its API key (optional)", KeyStore.SYSTEM1_KEY);
-        Details advanced = new Details("Advanced: your own System 1", url, key);
+        PasswordField key = secretField(Tr.t("keys.system1.key"), KeyStore.SYSTEM1_KEY);
+        Details advanced = new Details(Tr.t("keys.system1.advanced"), url, key);
 
-        return card("⚡ System 1 — Laya", "Required, no key. The small decision model that keeps or drops each "
-                        + "passage before System 2 reads it.",
+        return card(Tr.t("keys.system1.title"), Tr.t("keys.system1.what"),
                 ServiceStatus.Service.SYSTEM1, health::check,
                 () -> {
                     keys.set(KeyStore.SYSTEM1_URL, url.getValue());
@@ -130,7 +129,7 @@ public class KeyManagementView extends Div {
                     keys.set(KeyStore.SYSTEM1_KEY, "");
                     url.clear();
                     refreshSecret(key, KeyStore.SYSTEM1_KEY);
-                }, "🔄 Defaults",
+                }, Tr.t("keys.defaults"),
                 none, advanced);
     }
 
@@ -144,13 +143,13 @@ public class KeyManagementView extends Div {
             Background.run(status, check, status::show);
         };
 
-        Button saveButton = new Button("💾 Save", e -> {
+        Button saveButton = new Button(Tr.t("keys.save"), e -> {
             save.run();
-            Notification.show(service.label + " saved");
+            Notification.show(Tr.t("keys.saved", "@" + service.key()));
             test.run();   // saving also tests, so the user sees at once whether the new value works
         });
         saveButton.addThemeVariants(ButtonVariant.PRIMARY);
-        Button testButton = new Button("🧪 Test", e -> test.run());
+        Button testButton = new Button(Tr.t("keys.test"), e -> test.run());
         Button resetButton = new Button(resetLabel, e -> {
             reset.run();
             test.run();
@@ -190,10 +189,10 @@ public class KeyManagementView extends Div {
     private void refreshSecret(PasswordField field, String name) {
         field.clear();
         boolean saved = keys.has(name);
-        field.setPlaceholder(saved ? keys.masked(name) : "not set");
+        field.setPlaceholder(saved ? keys.masked(name) : Tr.t("keys.notSet"));
         field.setHelperText(!saved ? null : keys.fromConfig(name)
-                ? "From the app configuration. Type a key to override it here."
-                : "Saved. Leave empty to keep it.");
+                ? Tr.t("keys.fromConfig")
+                : Tr.t("keys.savedKeep"));
     }
 
     private void saveSecret(PasswordField field, String name) {

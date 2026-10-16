@@ -24,37 +24,37 @@ public class InfoHint extends Button {
         super(label == null ? "ℹ️" : "ℹ️ " + label);
         addThemeVariants(ButtonVariant.TERTIARY, ButtonVariant.SMALL);
         addClassName("rd-info");
-        getElement().setAttribute("aria-label", "What is this? " + hint.title);
-        getElement().setAttribute("title", "What is this?");
+        getElement().setAttribute("aria-label", Tr.t("common.whatIsThis") + " " + hint.title());
+        getElement().setAttribute("title", Tr.t("common.whatIsThis"));
         addClickListener(e -> dialog(hint).open());
     }
 
     static Dialog dialog(Hint hint) {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle(hint.title);
+        dialog.setHeaderTitle(hint.title());
         Button close = new Button("✕", e -> dialog.close());
         close.addThemeVariants(ButtonVariant.TERTIARY);
-        close.getElement().setAttribute("aria-label", "Close");
+        close.getElement().setAttribute("aria-label", Tr.t("common.close"));
         dialog.getHeader().add(close);
 
         Div body = new Div(
-                section("What it is", hint.what),
-                section("What it does here", hint.does));
-        if (!hint.links.isEmpty()) {
+                section(Tr.t("hint.label.what"), hint.what()),
+                section(Tr.t("hint.label.does"), hint.does()));
+        if (!hint.links().isEmpty()) {
             Div chips = new Div();
             chips.addClassNames("flex", "flex-wrap", "gap-1");
-            hint.links.forEach(l -> {
-                Span chip = new Span(l);
+            hint.links().forEach(l -> {
+                Span chip = new Span(l.shortName());
                 chip.addClassNames("rd-status", "rd-status-UNKNOWN", "text-xs");
                 chips.add(chip);
             });
-            body.add(label("Linked to"), chips);
+            body.add(label(Tr.t("hint.label.links")), chips);
         }
-        Div theory = new Div(label("📘 A little theory"), text(hint.theory));
+        Div theory = new Div(label(Tr.t("hint.label.theory")), text(hint.theory()));
         theory.addClassNames("rd-hint-theory", "p-3", "flex", "flex-col", "gap-1");
         body.add(theory);
         if (hint.learnMore != null) {
-            Anchor more = new Anchor(hint.learnMore, "🔗 Learn more");
+            Anchor more = new Anchor(hint.learnMore, Tr.t("hint.label.more"));
             more.setTarget("_blank");
             more.getElement().setAttribute("rel", "noopener");
             more.addClassName("text-sm");
@@ -94,17 +94,17 @@ public class InfoHint extends Button {
         chip.addThemeVariants(ButtonVariant.TERTIARY, ButtonVariant.SMALL);
         chip.addClassNames("rd-status", "rd-status-UNKNOWN", "rd-info-chip");
         chip.addClassNames(extraClasses);
-        chip.getElement().setAttribute("title", "What does this mean?");
-        chip.getElement().setAttribute("aria-label", text + " — what does this mean? " + hint.title);
+        chip.getElement().setAttribute("title", Tr.t("common.whatDoesThisMean"));
+        chip.getElement().setAttribute("aria-label", text + " — " + Tr.t("common.whatDoesThisMean") + " " + hint.title());
         return chip;
     }
 
-    /** The hint for a 🔬 Trace line or a status, by its leading emoji. */
-    public static Hint forStep(String step) {
-        if (step.startsWith("🗄️")) return Hint.WEAVIATE;
-        if (step.startsWith("⚡")) return Hint.SYSTEM1;
-        if (step.startsWith("🧠")) return Hint.SYSTEM2;
-        if (step.startsWith("⛔")) return Hint.FAIL_CLOSED;
+    /** The hint for a 🔬 Trace line, by its step key (e.g. "trace.step.SYSTEM1"). */
+    public static Hint forStep(String stepKey) {
+        if (stepKey.startsWith("trace.step.stopped")) return Hint.FAIL_CLOSED;
+        if (stepKey.endsWith("WEAVIATE")) return Hint.WEAVIATE;
+        if (stepKey.endsWith("SYSTEM1")) return Hint.SYSTEM1;
+        if (stepKey.endsWith("SYSTEM2")) return Hint.SYSTEM2;
         return Hint.TRACE;
     }
 

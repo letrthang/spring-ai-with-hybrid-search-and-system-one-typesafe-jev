@@ -27,17 +27,17 @@ public class SystemOneHealth {
         try {
             HttpResponse<String> response = Http.get(keys.system1Url() + "/health", null, Duration.ofSeconds(15));
             if (response.statusCode() == 200 && response.body().contains("\"ok\"")) {
-                return ServiceStatus.ready(SYSTEM1, "Laya is ready");
+                return ServiceStatus.ready(SYSTEM1, "status.system1.ready");
             }
             if (response.statusCode() == 503 || response.statusCode() == 200) {
-                return ServiceStatus.waiting(SYSTEM1, "Laya is waking up, about 1 minute");
+                return ServiceStatus.waiting(SYSTEM1, "status.system1.waking");
             }
-            return ServiceStatus.down(SYSTEM1, "Laya answered HTTP " + response.statusCode());
+            return ServiceStatus.down(SYSTEM1, "status.http", response.statusCode());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return ServiceStatus.down(SYSTEM1, "check interrupted");
+            return ServiceStatus.down(SYSTEM1, "status.interrupted");
         } catch (Exception e) {
-            return ServiceStatus.down(SYSTEM1, "Laya unreachable (" + Http.describe(e) + ")");
+            return ServiceStatus.down(SYSTEM1, "status.unreachable", Http.describe(e));
         }
     }
 }

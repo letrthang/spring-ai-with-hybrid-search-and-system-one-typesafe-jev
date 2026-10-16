@@ -69,19 +69,18 @@ public class LayaClient {
             response = Http.CLIENT.send(request.build(), HttpResponse.BodyHandlers.ofString());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new SystemDownException(SYSTEM1, "call interrupted");
+            throw new SystemDownException(SYSTEM1, "status.interrupted");
         } catch (Exception e) {
-            throw new SystemDownException(SYSTEM1, "Laya unreachable (" + Http.describe(e) + ")");
+            throw new SystemDownException(SYSTEM1, "status.unreachable", Http.describe(e));
         }
         long ms = System.currentTimeMillis() - t0;
         log.debug("⚡ Laya POST {} → HTTP {} in {} ms ({} bytes sent)", url, response.statusCode(), ms, body.length());
         return switch (response.statusCode()) {
             case 200 -> parse(response.body(), ms);
-            case 429 -> throw new SystemDownException(SYSTEM1,
-                    "busy — the public route allows 10 calls per minute, try again in a minute");
-            case 503 -> throw new SystemDownException(SYSTEM1, "Laya is waking up, about 1 minute");
-            case 401, 403 -> throw new SystemDownException(SYSTEM1, "invalid System 1 key");
-            default -> throw new SystemDownException(SYSTEM1, "Laya answered HTTP " + response.statusCode());
+            case 429 -> throw new SystemDownException(SYSTEM1, "status.system1.busy");
+            case 503 -> throw new SystemDownException(SYSTEM1, "status.system1.waking");
+            case 401, 403 -> throw new SystemDownException(SYSTEM1, "status.invalidKey");
+            default -> throw new SystemDownException(SYSTEM1, "status.http", response.statusCode());
         };
     }
 
@@ -114,7 +113,7 @@ public class LayaClient {
         double answersIt = answers.path("answers").path("noul").asDouble(Double.NaN);
         double injection = answers.path("injection").path("noul").asDouble(Double.NaN);
         if (Double.isNaN(relevant) || Double.isNaN(answersIt) || Double.isNaN(injection)) {
-            throw new SystemDownException(SYSTEM1, "unexpected answer from Laya");
+            throw new SystemDownException(SYSTEM1, "status.system1.badAnswer");
         }
         return new Scores(relevant, answersIt, injection, ms);
     }

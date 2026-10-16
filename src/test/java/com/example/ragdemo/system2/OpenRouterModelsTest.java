@@ -1,5 +1,6 @@
 package com.example.ragdemo.system2;
 
+import com.example.ragdemo.ui.ModelPicker;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -32,8 +33,8 @@ class OpenRouterModelsTest {
     @Test
     void detailsLineForTheDropdownFooter() {
         List<OpenRouterModels.ModelInfo> models = OpenRouterModels.parse(JSON);
-        assertThat(models.get(1).details()).isEqualTo("🆓 Free · 256K context · 🛠 tools");
-        assertThat(models.get(0).details()).isEqualTo("🆓 Free · 1M context");
-        assertThat(models.get(2).details()).isEqualTo("💲 $0.30 in / $2.50 out per 1M tokens · 128K context · 🛠 tools");
+        assertThat(ModelPicker.details(models.get(1))).isEqualTo("🆓 Free · 256K context · 🛠 tools");
+        assertThat(ModelPicker.details(models.get(0))).isEqualTo("🆓 Free · 1M context");
+        assertThat(ModelPicker.details(models.get(2))).isEqualTo("💲 $0.30 in / $2.50 out per 1M tokens · 128K context · 🛠 tools");
     }
 }

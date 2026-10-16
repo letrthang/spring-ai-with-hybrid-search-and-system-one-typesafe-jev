@@ -86,7 +86,7 @@ class WeaviateIT {
     @Test
     void loadSearchAndHealth() {
         WeaviateHealth health = new WeaviateHealth(keys, connector);
-        assertThat(health.check().reason()).contains("no collection yet");
+        assertThat(health.check().reason().key()).isEqualTo("status.weaviate.noCollection");
 
         // the local vectorizer instead of text2vec-weaviate (a local Weaviate has no Weaviate Cloud embeddings)
         var local = DemoDocCollection.definition(VectorConfig.text2vecModel2Vec(v -> v.sourceProperties("title", "body")));
@@ -122,6 +122,6 @@ class WeaviateIT {
         KeyStore wrong = mock(KeyStore.class);
         when(wrong.weaviateUrl()).thenReturn(url);
         when(wrong.weaviateKey()).thenReturn("not-the-key");
-        assertThat(new WeaviateHealth(wrong, connector).check().reason()).contains("invalid API key");
+        assertThat(new WeaviateHealth(wrong, connector).check().reason().key()).isEqualTo("status.invalidKey");
     }
 }

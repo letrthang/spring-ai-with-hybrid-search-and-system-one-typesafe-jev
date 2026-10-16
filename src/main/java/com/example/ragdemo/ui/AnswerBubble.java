@@ -1,6 +1,7 @@
 package com.example.ragdemo.ui;
 
 import com.example.ragdemo.rag.RagAnswer;
+import com.example.ragdemo.system1.SystemOneFilter;
 import com.example.ragdemo.rag.RagAnswer.Source;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -34,17 +35,16 @@ public final class AnswerBubble {
         Div bubble = new Div();
         bubble.addClassNames("rd-bubble", "rd-bubble-ai", "p-3", "flex", "flex-col", "gap-2");
         if (a.failed()) {
-            Paragraph failed = new Paragraph("⚠️ " + a.failure().service().label + " is not available: "
-                    + a.failure().reason() + ". The question was not answered.");
+            Paragraph failed = new Paragraph(Tr.t("answer.failed", "@" + a.failure().service().key(),
+                    Tr.t(a.failure().reason())));
             failed.addClassNames("m-0", "rd-warning", "p-2");
             bubble.add(InfoHint.with(failed, Hint.FAIL_CLOSED));
         } else {
-            Markdown text = new Markdown(a.text());
+            // nothing kept → a translated explanation; otherwise the LLM's answer (in the language of the question)
+            Markdown text = new Markdown(a.nothingKept() ? Tr.t("answer.nothingKept") : a.text());
             text.addClassName("rd-markdown");
             bubble.add(text);
-            if (a.model() == null) {   // nothing was kept: explain why System 2 was not asked
-                bubble.add(InfoHint.chip("Why no answer?", Hint.LAYA_SCORES));
-            }
+            if (a.nothingKept()) bubble.add(InfoHint.chip(Tr.t("answer.whyNoAnswer"), Hint.LAYA_SCORES));
         }
         Div flowRow = new Div(dataFlowButton(a), new InfoHint(Hint.DATA_FLOW));
         flowRow.addClassNames("flex", "items-center", "gap-1");
@@ -57,15 +57,15 @@ public final class AnswerBubble {
     private static Details sources(RagAnswer a) {
         Div list = new Div();
         list.addClassNames("flex", "flex-col", "gap-2");
-        Div learn = new Div(muted("Learn:"), new InfoHint(Hint.SOURCES, "Sources"), new InfoHint(Hint.BM25, "BM25"),
-                new InfoHint(Hint.VECTOR, "Vector"), new InfoHint(Hint.RRF, "RRF"),
-                new InfoHint(Hint.LAYA_SCORES, "relevant · answers · injection"),
-                new InfoHint(Hint.INJECTION, "Prompt injection"));
+        Div learn = new Div(muted(Tr.t("answer.learn")), new InfoHint(Hint.SOURCES, Tr.t("answer.learn.sources")),
+                new InfoHint(Hint.BM25, "BM25"), new InfoHint(Hint.VECTOR, Tr.t("answer.learn.vector")),
+                new InfoHint(Hint.RRF, "RRF"), new InfoHint(Hint.LAYA_SCORES, Tr.t("answer.learn.scores")),
+                new InfoHint(Hint.INJECTION, Tr.t("answer.learn.injection")));
         learn.addClassNames("flex", "flex-wrap", "items-center", "gap-1");
         list.add(learn);
-        if (a.sources().isEmpty()) list.add(muted("No passage was found."));
+        if (a.sources().isEmpty()) list.add(muted(Tr.t("answer.noPassage")));
         for (Source s : a.sources()) list.add(source(s));
-        Details details = new Details("📚 Sources — " + a.usedCount() + " used of " + a.sources().size(), list);
+        Details details = new Details(Tr.t("answer.sources", a.usedCount(), a.sources().size()), list);
         details.addClassName("rd-answer-section");
         return details;
     }
@@ -73,20 +73,20 @@ public final class AnswerBubble {
     private static Div source(Source s) {
         Span title = new Span((s.used() ? "[" + s.citation() + "] " : "") + s.title());
         title.addClassNames("font-semibold", "text-sm");
-        Span from = new Span("📄 " + s.source() + (s.chunkNo() == null ? "" : " · passage " + s.chunkNo()));
+        Span from = new Span("📄 " + s.source() + (s.chunkNo() == null ? "" : " · " + Tr.t("common.passage", s.chunkNo())));
         from.addClassNames("rd-muted", "text-xs");
         Div chips = new Div(
                 InfoHint.chip("BM25 " + (s.bm25Rank() == null ? "—" : "#" + s.bm25Rank()), Hint.BM25),
-                InfoHint.chip("Vector " + (s.vectorRank() == null ? "—" : "#" + s.vectorRank()), Hint.VECTOR),
+                InfoHint.chip(Tr.t("common.vector") + " " + (s.vectorRank() == null ? "—" : "#" + s.vectorRank()), Hint.VECTOR),
                 InfoHint.chip("RRF " + (s.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f", s.rrfScore())),
                         Hint.RRF));
         if (s.relevant() != null) {
-            chips.add(InfoHint.chip(String.format(Locale.ROOT, "⚡ relevant %.2f · answers %.2f · injection %.2f",
-                    s.relevant(), s.answers(), s.injection()), Hint.LAYA_SCORES));
+            chips.add(InfoHint.chip("⚡ " + Tr.t("flow.scores", fmt(s.relevant()), fmt(s.answers()), fmt(s.injection())),
+                    Hint.LAYA_SCORES));
         }
         if (s.verdict() != null) {
-            chips.add(InfoHint.chip((s.verdict().equals("kept") ? "✅ " : "🚫 ") + s.verdict()
-                            + (s.verdict().equals("kept") && !s.used() ? " (not in the best 3)" : ""),
+            chips.add(InfoHint.chip((s.verdict().equals("kept") ? "✅ " : "🚫 ") + Tr.t(SystemOneFilter.verdictKey(s.verdict()))
+                            + (s.verdict().equals("kept") && !s.used() ? " " + Tr.t("answer.notInBest") : ""),
                     s.verdict().contains("injection") ? Hint.INJECTION : Hint.LAYA_SCORES,
                     s.verdict().equals("kept") ? "rd-status-READY" : "rd-status-DOWN"));
         }
@@ -105,18 +105,18 @@ public final class AnswerBubble {
         Div lines = new Div();
         lines.addClassNames("flex", "flex-col", "gap-1", "text-sm");
         for (RagAnswer.TraceLine line : a.trace()) {
-            Span step = new Span(line.step());
+            Span step = new Span(Tr.t(line.step()));
             step.addClassNames("font-semibold");
             Div stepCell = InfoHint.with(step, InfoHint.forStep(line.step()));
             stepCell.addClassNames("shrink-0", "w-36");
-            Span detail = new Span(line.detail());
+            Span detail = new Span(Tr.t(line.detail()));
             detail.addClassNames("min-w-0", "break-words");
             Div row = new Div(stepCell, detail);
             row.addClassNames("flex", "gap-2");
             lines.add(row);
         }
-        lines.add(new InfoHint(Hint.TRACE, "What do these numbers mean?"));
-        Details details = new Details("🔬 Trace", lines);
+        lines.add(new InfoHint(Hint.TRACE, Tr.t("answer.traceHint")));
+        Details details = new Details(Tr.t("answer.trace"), lines);
         details.addClassName("rd-answer-section");
         return details;
     }
@@ -124,7 +124,7 @@ public final class AnswerBubble {
     // ------------------------------------------------------------------ 🔀 Data flow
 
     private static Button dataFlowButton(RagAnswer a) {
-        Button open = new Button("🔀 Data flow", e -> new AppDialog("🔀 Data flow — " + shortQuestion(a.question()),
+        Button open = new Button(Tr.t("answer.dataFlow"), e -> new AppDialog(Tr.t("answer.dataFlowTitle", shortQuestion(a.question())),
                 DataFlowDiagram.of(a.flow())).open());
         open.addThemeVariants(ButtonVariant.TERTIARY);
         open.addClassName("self-start");
@@ -135,6 +135,10 @@ public final class AnswerBubble {
         return q.length() <= 60 ? q : q.substring(0, 59) + "…";
     }
 
+
+    private static String fmt(Double v) {
+        return v == null ? "—" : String.format(Locale.ROOT, "%.2f", v);
+    }
 
     private static Span muted(String text) {
         Span span = new Span(text);

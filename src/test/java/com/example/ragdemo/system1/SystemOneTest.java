@@ -58,7 +58,7 @@ class SystemOneTest {
             public Scores score(String question, String passage) {
                 Scores s = byText.get(passage);
                 if (s == null) throw new SystemDownException(com.example.ragdemo.rag.ServiceStatus.Service.SYSTEM1,
-                        "Laya is waking up, about 1 minute");
+                        "status.system1.waking");
                 return s;
             }
         };
@@ -86,7 +86,7 @@ class SystemOneTest {
     void oneFailedCallStopsEverything_noPassageGoesThroughUnchecked() {
         SystemOneFilter filter = new SystemOneFilter(fakeLaya(Map.of("manual", new LayaClient.Scores(0.9, 0.9, 0, 1))));
         assertThatThrownBy(() -> filter.process(new Query("q"), List.of(doc("manual"), doc("unknown"))))
-                .isInstanceOf(SystemDownException.class).hasMessageContaining("waking up");
+                .isInstanceOf(SystemDownException.class).hasMessageContaining("status.system1.waking");
     }
 
     // ------------------------------------------------------------------ SystemOneReranker

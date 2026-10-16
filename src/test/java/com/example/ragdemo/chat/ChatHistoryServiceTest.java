@@ -1,6 +1,7 @@
 package com.example.ragdemo.chat;
 
 import com.example.ragdemo.rag.FlowRecorder;
+import com.example.ragdemo.rag.Msg;
 import com.example.ragdemo.rag.RagAnswer;
 import com.example.ragdemo.rag.ServiceStatus;
 import org.junit.jupiter.api.Test;
@@ -19,17 +20,17 @@ class ChatHistoryServiceTest {
 
     static RagAnswer answer(String question, String text, RagAnswer.Failure failure) {
         FlowRecorder flow = new FlowRecorder();
-        flow.call(FlowRecorder.Actor.USER, FlowRecorder.Actor.APP, "1. question", 0, 0, question);
+        flow.call(FlowRecorder.Actor.USER, FlowRecorder.Actor.APP, Msg.of("flow.question"), 0, 0, Msg.raw(question));
         return new RagAnswer(question, text,
                 List.of(new RagAnswer.Source("T", "02-aerators.md", 2, "body", 1, 2, 0.03, 0.9, 0.9, 0.0, "kept", 1)),
-                List.of(new RagAnswer.TraceLine("⏱️ Total", "10 ms")), flow.hops(), "m:free", 10, failure);
+                List.of(new RagAnswer.TraceLine("trace.step.total", Msg.of("trace.total", 10))), flow.hops(), "m:free", 10, failure);
     }
 
     @Test
     void turnsAreSavedAndTheAnswerComesBackWithItsTrace() {
         String id = history.saveTurn(null, answer("How do I reset AER-01 after error E-17?", "Hold RESET [1].", null));
         history.saveTurn(id, answer("And E-18?", null,
-                new RagAnswer.Failure(ServiceStatus.Service.SYSTEM2, "every model failed")));
+                new RagAnswer.Failure(ServiceStatus.Service.SYSTEM2, Msg.of("status.system2.allFailed", "a:free: busy"))));
 
         ChatSession session = history.sessions(0, 50).stream().filter(s -> s.getId().equals(id)).findFirst().orElseThrow();
         assertThat(session.getTitle()).isEqualTo("How do I reset AER-01 after error E-17?");
@@ -39,11 +40,14 @@ class ChatHistoryServiceTest {
         assertThat(messages).extracting(ChatMessage::getSender).containsExactly(ChatMessage.Sender.USER,
                 ChatMessage.Sender.AI, ChatMessage.Sender.USER, ChatMessage.Sender.AI);
         assertThat(messages.get(3).getStatus()).isEqualTo(ChatMessage.Status.FAILED);
-        assertThat(messages.get(3).getText()).isEqualTo("⚠️ 🧠 System 2: every model failed");
+        assertThat(messages.get(3).getText()).isEqualTo("⚠️ SYSTEM2: status.system2.allFailed [a:free: busy]");
 
         RagAnswer back = ChatHistoryService.answerOf(messages.get(1));
         assertThat(back.text()).isEqualTo("Hold RESET [1].");
-        assertThat(back.flow()).extracting(FlowRecorder.FlowHop::label).containsExactly("1. question");
+        assertThat(back.flow()).extracting(FlowRecorder.FlowHop::label).containsExactly(Msg.of("flow.question"));
+        assertThat(back.failed()).isFalse();
+        assertThat(ChatHistoryService.answerOf(messages.get(3)).failure().reason())
+                .isEqualTo(Msg.of("status.system2.allFailed", "a:free: busy"));
         assertThat(back.sources().getFirst().used()).isTrue();
         assertThat(ChatHistoryService.answerOf(messages.getFirst())).isNull();
     }

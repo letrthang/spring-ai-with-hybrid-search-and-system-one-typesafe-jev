@@ -34,36 +34,36 @@ public class WeaviateHealth {
     public ServiceStatus check() {
         String url = keys.weaviateUrl();
         if (url.isBlank() || keys.weaviateKey().isBlank()) {
-            return ServiceStatus.down(WEAVIATE, "no URL or API key — enter them in 🔑 Key Management");
+            return ServiceStatus.down(WEAVIATE, "status.weaviate.noKey");
         }
         String base = withScheme(url);
         try {
             HttpResponse<String> ready = Http.get(base + "/v1/.well-known/ready", null, Duration.ofSeconds(15));
             if (ready.statusCode() != 200) {
-                return ServiceStatus.down(WEAVIATE, "cluster not ready (HTTP " + ready.statusCode() + ")");
+                return ServiceStatus.down(WEAVIATE, "status.weaviate.notReady", ready.statusCode());
             }
             HttpResponse<String> schema = Http.get(base + "/v1/schema", keys.weaviateKey(), Duration.ofSeconds(15));
             if (schema.statusCode() == 401 || schema.statusCode() == 403) {
-                return ServiceStatus.down(WEAVIATE, "invalid API key — check 🔑 Key Management");
+                return ServiceStatus.down(WEAVIATE, "status.invalidKey");
             }
             if (schema.statusCode() != 200) {
-                return ServiceStatus.down(WEAVIATE, "answered HTTP " + schema.statusCode());
+                return ServiceStatus.down(WEAVIATE, "status.http", schema.statusCode());
             }
             long count = weaviate.call("count", DemoDocCollection::count);
             if (count < 0) {
-                return ServiceStatus.waiting(WEAVIATE, "no collection yet — load sample data in 🔎 Search Data");
+                return ServiceStatus.waiting(WEAVIATE, "status.weaviate.noCollection");
             }
             if (count == 0) {
-                return ServiceStatus.waiting(WEAVIATE, "collection is empty — load sample data in 🔎 Search Data");
+                return ServiceStatus.waiting(WEAVIATE, "status.weaviate.empty");
             }
-            return ServiceStatus.ready(WEAVIATE, count + " passages");
+            return ServiceStatus.ready(WEAVIATE, "status.weaviate.ready", count);
         } catch (SystemDownException e) {
             return e.toStatus();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return ServiceStatus.down(WEAVIATE, "check interrupted");
+            return ServiceStatus.down(WEAVIATE, "status.interrupted");
         } catch (Exception e) {
-            return ServiceStatus.down(WEAVIATE, "unreachable (" + Http.describe(e) + ")");
+            return ServiceStatus.down(WEAVIATE, "status.unreachable", Http.describe(e));
         }
     }
 

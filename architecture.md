@@ -126,14 +126,16 @@ Each method misses something; the fused list gets both right. That is why the de
 src/main/java/com/example/ragdemo/
 ├── RagDemoApplication.java        Spring Boot entry point; Aura theme, push, light/dark
 ├── keys/                          🔑 the two keys and the endpoints, in the H2 file DB
-│   ├── ApiSetting.java            one row: name → value
-│   └── KeyStore.java              typed getters + defaults; read on EVERY call (no cached keys)
+│   ├── ApiSetting.java (+ repository)  one row: name → value
+│   └── KeyStore.java              typed getters; defaults from application.yml / env vars;
+│                                  read on EVERY call (no cached keys)
 ├── weaviate/                      🗄️ retrieval
 │   ├── WeaviateConnector.java     the only place that opens a WeaviateClient (rebuilt when the key changes)
-│   ├── DemoDocCollection.java     the collection DemoDoc (title, body, source, chunkNo) + built-in vectorizer
+│   ├── DemoDocCollection.java     the collection DemoDoc (title, body, source, chunkNo) + built-in vectorizer, HFresh
 │   ├── SampleDataLoader.java      resources/sample-data/*.md → one passage per "## section" → Weaviate
 │   ├── HybridRetriever.java       Spring AI DocumentRetriever: BM25 + nearText in parallel + RRF
 │   ├── RrfFusion.java             1/(60+rank), the whole fusion in one small class
+│   ├── WeaviateRecords.java       one stored object by UUID (fields, vector, times) for 🧾 record details
 │   └── WeaviateHealth.java        🟢 N passages / 🟡 empty / 🔴 down or bad key
 ├── system1/                       ⚡ Laya
 │   ├── LayaClient.java            POST /demo/systemone: three yes/no questions → three probabilities
@@ -141,12 +143,14 @@ src/main/java/com/example/ragdemo/
 │   ├── SystemOneReranker.java     Spring AI DocumentPostProcessor: sort the kept ones by "answers", best 3
 │   └── SystemOneHealth.java       GET /health
 ├── system2/                       🧠 OpenRouter
-│   ├── SystemTwoClient.java       Spring AI OpenAiChatModel built per call, free models tried in order
+│   ├── SystemTwoClient.java       Spring AI OpenAiChatModel built per call, models tried in order
+│   ├── OpenRouterModels.java      the model list (🆓 free first, 💲 paid) with context size and price
 │   └── SystemTwoHealth.java       GET /key (OpenRouter) or /models — costs no tokens
 ├── rag/                           🔗 the pipeline
-│   ├── RagService.java            steps 2–7 above, top to bottom
+│   ├── RagService.java            steps 2–7 above, top to bottom; logs every step (DEBUG)
 │   ├── FlowRecorder.java          collects FlowHop records for 🔀 Data flow
 │   ├── RagAnswer.java             text + sources + trace + flow (+ failure)
+│   ├── Msg.java                   a text as key + arguments, translated only when shown (see i18n below)
 │   ├── ServiceStatus.java         🟢 / 🟡 / 🔴 + reason, for the pills
 │   ├── SystemDownException.java   a required service failed → stop
 │   └── Http.java                  the one JDK HttpClient (health checks, Laya)
@@ -154,14 +158,32 @@ src/main/java/com/example/ragdemo/
 │   ├── ChatSession.java, ChatMessage.java (+ repositories)
 │   └── ChatHistoryService.java    saves each turn; the answer is kept as JSON (sources, trace, flow)
 └── ui/                            🖥️ Vaadin
-    ├── MainLayout.java            the page: header + left drawer with the 3 menus
-    ├── ChatView.java              💬 status pills, question, answers, 📂 History
+    ├── MainLayout.java            the page: header (title, ocean-wave border, logos, 🌐 language) + left drawer
+    ├── ChatView.java              💬 status pills, question, progress steps, answers, 📂 History
     ├── AnswerBubble.java          answer + 📚 Sources + 🔬 Trace + 🔀 Data flow button
     ├── DataFlowDiagram.java       the sequence diagram, plain HTML/CSS
-    ├── SearchDataView.java        🔎 BM25 / Vector / Hybrid over Weaviate
+    ├── SearchDataView.java        🔎 BM25 / Vector / Hybrid over Weaviate, master-detail with DetailCard
+    ├── RecordDialog.java          🧾 one Weaviate record: where it lives, its schema, its vector
     ├── KeyManagementView.java     🔑 the keys, with 🧪 Test buttons
-    └── AppDialog.java, StatusPill.java, Background.java (virtual thread → UI.access)
+    ├── ModelPicker.java           🧩 choose and order the System 2 models
+    ├── Hint.java, InfoHint.java   ℹ️ the learning hints (what / does / theory / links) and their buttons
+    ├── Tr.java, LanguageSetup.java  🌐 translations; every visitor starts in English
+    └── AppDialog.java, DetailCard.java, StatusPill.java, Background.java (virtual thread → UI.access)
+
+src/main/resources/
+├── application.yml                defaults (keys empty → env vars or git-ignored ./application-local.yml), logging
+├── sample-data/01…14-*.md         biotech, physics, the demo itself, office notes, fish farm
+├── vaadin-i18n/translations.properties      🇬🇧 English (default)
+├── vaadin-i18n/translations_vi.properties   🇻🇳 Tiếng Việt
+├── vaadin-i18n/translations_ja.properties   🇯🇵 日本語
+└── META-INF/resources/            styles.css (all rd-* classes) + icons/*.webp
 ```
+
+**i18n.** Every text on the page comes from `vaadin-i18n/translations*.properties`; the three files have exactly
+the same keys (`TranslationsTest` checks it). The backend never builds English sentences: it returns a `Msg`
+(key + arguments, e.g. `status.http` + `503`) and the UI turns it into text with `Tr.t(...)` in the page's language.
+An argument written `@key` is translated too (e.g. `flow.stopped` + `@service.SYSTEM1`). The 🌐 dropdown in the
+header stores the language in the session and reloads the page. Logs stay in English.
 
 `RagService` calls the Spring AI building blocks **one by one, in plain code**, so each step can be timed and drawn in
 the data flow. Spring AI's `RetrievalAugmentationAdvisor` wires the very same pieces

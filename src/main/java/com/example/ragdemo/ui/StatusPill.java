@@ -3,7 +3,7 @@ package com.example.ragdemo.ui;
 import com.example.ragdemo.rag.ServiceStatus;
 import com.vaadin.flow.component.html.Span;
 
-/** A 🟢 / 🟡 / 🔴 pill for one service, e.g. "🟢 ⚡ System 1: Laya is ready". */
+/** A 🟢 / 🟡 / 🔴 pill for one service, e.g. "🟢 ⚡ System 1: Laya is ready" (in the page's language). */
 public class StatusPill extends Span {
 
     private final ServiceStatus.Service service;
@@ -15,11 +15,16 @@ public class StatusPill extends Span {
     }
 
     public void showChecking() {
-        setState("UNKNOWN", "⏳ " + service.label + ": checking…");
+        setState("UNKNOWN", "⏳ " + Tr.t(service.key()) + ": " + Tr.t("status.checking"));
     }
 
     public void show(ServiceStatus status) {
-        setState(status.state().name(), status.text());
+        setState(status.state().name(), text(status));
+    }
+
+    /** "🟢 ⚡ System 1: Laya is ready" — the dot, the service and the translated reason. */
+    public static String text(ServiceStatus status) {
+        return status.state().dot + " " + Tr.t(status.service().key()) + ": " + Tr.t(status.reason());
     }
 
     private void setState(String state, String text) {

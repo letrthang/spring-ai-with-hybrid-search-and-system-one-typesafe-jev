@@ -48,7 +48,7 @@ public class WeaviateConnector {
         } catch (Exception e) {
             log.warn("🗄️ Weaviate {} failed: {}", what, Http.describe(e));
             close();   // the next call opens a fresh client
-            throw new SystemDownException(WEAVIATE, what + " failed (" + Http.describe(e) + ")");
+            throw new SystemDownException(WEAVIATE, "status.weaviate.failed", what, Http.describe(e));
         }
     }
 
@@ -56,7 +56,7 @@ public class WeaviateConnector {
         String url = keys.weaviateUrl();
         String key = keys.weaviateKey();
         if (url.isBlank() || key.isBlank()) {
-            throw new SystemDownException(WEAVIATE, "no URL or API key — enter them in 🔑 Key Management");
+            throw new SystemDownException(WEAVIATE, "status.weaviate.noKey");
         }
         String identity = url + "\n" + key;
         if (client == null || !identity.equals(builtFor)) {
