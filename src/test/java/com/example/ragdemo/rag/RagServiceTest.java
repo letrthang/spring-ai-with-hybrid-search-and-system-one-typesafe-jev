@@ -213,11 +213,20 @@ class RagServiceTest {
     }
 
     @Test
+    void theSameQuestionIsAMatchAtAnyDistance_butSystemOneStillChecksIt() {
+        RagAnswer a = new RagService(retriever(HITS, null), laya(SCORES, null), new SystemOneReranker(), llm(),
+                learned(match(0.70f)), verifier(true, 0.92)).ask("  how to reset aer-01 ");
+
+        assertThat(a.reused()).isTrue();
+        assertThat(prompts).isEmpty();
+    }
+
+    @Test
     void aLearnedAnswerThatDoesNotFit_orIsTooFar_isNotReused() {
         RagAnswer notFit = new RagService(retriever(HITS, null), laya(SCORES, null), new SystemOneReranker(), llm(),
                 learned(match(0.05f)), verifier(true, 0.20)).ask("How do I reset AER-01?");
         RagAnswer tooFar = new RagService(retriever(HITS, null), laya(SCORES, null), new SystemOneReranker(), llm(),
-                learned(match(0.40f)), verifier(true, 0.99)).ask("How do I reset AER-01?");
+                learned(match(0.60f)), verifier(true, 0.99)).ask("How do I reset AER-01?");
         assertThat(notFit.reused()).isFalse();
         assertThat(tooFar.reused()).isFalse();
         assertThat(prompts).hasSize(2);   // both went through System 2

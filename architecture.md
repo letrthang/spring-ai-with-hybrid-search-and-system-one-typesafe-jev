@@ -97,7 +97,7 @@ sequenceDiagram
 
 ```
 question ─► ♻️ closest learned answer (kind = learned, same language, nearText on the question)
-             │ distance < 0.15 and ⚡ "does this stored answer answer THIS question?" ≥ 0.70
+             │ (same question, or distance < 0.45) and ⚡ "does this stored answer answer THIS question?" ≥ 0.70
              ├── yes ─► answer + its original sources, marked ♻️ — System 2 not called
              └── no ──► the normal pipeline ─► answer ─► ⚡ verify ─► 🧠 save (kind = learned)
 ```

@@ -251,11 +251,15 @@ the 🧭 diagram's save-back line shows the new count; ⛶ fills the window with
 Esc or ⛶ brings it back.
 
 ### TC-34 · A similar question reuses it
-1. Ask **what does a RAS system do** (same meaning, other words / case). 2. Look at the chip, steps and Trace.
+1. Ask **what does a RAS system do** (same question, other case / no "?"). 2. Look at the chip, steps and Trace.
+3. Ask a close rewording, e.g. **What does a RAS do?**
 
-**Expected:** "♻️ Reused a learned answer (distance 0.0x · ⚡ answers 0.9x)" (tooltip: the learned question); steps
+**Expected:** "♻️ Reused a learned answer (distance 0.3x–0.4x · ⚡ answers 0.9x)" (tooltip: the learned question); steps
 ♻️ 🗄️ ✅ → ⚡ ✅ → 🧠 ➖ → 🧠 Learn ➖; Trace "♻️ Reused … System 2 not called"; the answer's sources are the original
-passages. In 🇻🇳 / 🇯🇵 the English answer is never reused (same language only).
+passages; the log shows "[1] ♻️ learned lookup: … (same question)" or "(close enough)". 🧠 Learned answers still has
+one row for the question (asking it again never adds a duplicate). A different question about the same topic (distance
+≥ 0.45, e.g. "What is a RAS?") is answered by System 2 as usual. In 🇻🇳 / 🇯🇵 the English answer is never reused (same
+language only).
 
 ### TC-35 · What is not learned
 1. Ask a question the data cannot answer (e.g. `What is the capital of Peru?`).

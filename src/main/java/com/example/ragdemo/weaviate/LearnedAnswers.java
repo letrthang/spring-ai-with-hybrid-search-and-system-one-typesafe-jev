@@ -119,10 +119,20 @@ public class LearnedAnswers {
         });
     }
 
-    /** Same language + same question (case and spaces ignored) → same id. */
+    /** Same language + same question (case, spaces and end punctuation ignored) → same id. */
     static String idOf(String lang, String question) {
-        String key = lang + "|" + question.strip().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+        String key = lang + "|" + normalized(question);
         return UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)).toString();
+    }
+
+    /** "What does a RAS system do?" and "what does a  ras system do" are the same question. */
+    public static boolean sameQuestion(String a, String b) {
+        return a != null && b != null && normalized(a).equals(normalized(b));
+    }
+
+    static String normalized(String question) {
+        return question.strip().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ")
+                .replaceAll("[\\s?!.。？！]+$", "");
     }
 
     private static Learned learned(WeaviateObject<Map<String, Object>> o) {

@@ -71,8 +71,13 @@ public class RagService {
     static final String NOTHING_KEPT = "System 1 found no passage that can answer this question, so there is "
             + "nothing for System 2 to answer from. Try another question, or check 🔎 Search Data.";
 
-    /** A learned question this close (cosine distance) to the new one may be reused — if System 1 agrees. */
-    public static final double REUSE_DISTANCE = 0.15;
+    /**
+     * A learned question this close (cosine distance) to the new one may be reused — if System 1 agrees. Measured on
+     * Weaviate Cloud's vectorizer (Snowflake arctic-embed-l-v2.0, 1-bit RQ), where a question never comes near 0
+     * against itself: identical 0.33, other case / no "?" 0.38–0.40, "What is a RAS?" 0.48–0.57, other topics
+     * 0.75–0.84. The same question (see {@link LearnedAnswers#sameQuestion}) is a match at any distance.
+     */
+    public static final double REUSE_DISTANCE = 0.45;
 
     private final HybridRetriever retriever;
     private final SystemOneFilter filter;
@@ -212,8 +217,9 @@ public class RagService {
     }
 
     /**
-     * Step 1 — the closest learned question (same language). Close enough ({@value #REUSE_DISTANCE}) and System 1
-     * says its answer answers <b>this</b> question → the learned answer, with its original sources; else null.
+     * Step 1 — the closest learned question (same language). The same question, or close enough
+     * ({@value #REUSE_DISTANCE}), and System 1 says its answer answers <b>this</b> question → the learned answer,
+     * with its original sources; else null.
      */
     private RagAnswer tryReuse(String question, FlowRecorder flow, List<TraceLine> trace, Consumer<Progress> onProgress) {
         long at = flow.now();
@@ -226,7 +232,12 @@ public class RagService {
         LearnedAnswers.Learned l = match.orElse(null);
         flow.call(Actor.APP, Actor.WEAVIATE, Msg.of("flow.learned.lookup"), at, flow.now() - at, l == null
                 ? Msg.of("flow.learned.none") : Msg.of("flow.learned.found", String.format(Locale.ROOT, "%.3f", l.distance())));
-        if (l == null || l.distance() == null || l.distance() >= REUSE_DISTANCE) return null;
+        boolean same = l != null && LearnedAnswers.sameQuestion(question, l.question());
+        boolean close = l != null && l.distance() != null && l.distance() < REUSE_DISTANCE;
+        log.info("  [1] ♻️ learned lookup: {}", l == null ? "nothing learned in this language"
+                : "\"" + l.question() + "\" at distance " + String.format(Locale.ROOT, "%.3f", l.distance())
+                + (same ? " (same question)" : close ? " (close enough)" : " (too far, limit " + REUSE_DISTANCE + ")"));
+        if (!same && !close) return null;
 
         onProgress.accept(new Progress(Stage.SYSTEM1, Msg.of("progress.reuseCheck")));
         at = flow.now();
