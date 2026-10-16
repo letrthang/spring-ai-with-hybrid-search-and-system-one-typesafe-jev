@@ -1,6 +1,8 @@
 server:
   # Render sets PORT; locally the app runs on 8080
   port: ${PORT:8080}
+  # On a redeploy Render stops the old instance: finish the requests in flight first, then close the database.
+  shutdown: graceful
 
 spring:
   application:
@@ -11,10 +13,14 @@ spring:
   threads:
     virtual:
       enabled: true   # blocking calls (Weaviate, Laya, OpenRouter) run on virtual threads
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
   datasource:
-    # A local FILE database: keys survive a local restart. On Render the disk is not persistent,
-    # so a restart / redeploy starts empty and the keys are entered again in Key Management.
-    url: jdbc:h2:file:./data/ragdemo;AUTO_SERVER=FALSE
+    # A local FILE database: keys saved in Key Management and the chat history survive a local restart. On Render
+    # the disk is not persistent: a restart / redeploy starts empty (the default keys come from environment variables).
+    # DB_CLOSE_ON_EXIT=FALSE: Spring closes H2 after the web server has stopped — not the JVM's shutdown hook, which
+    # closed it while the old instance was still answering ("Database is already closed" during every redeploy).
+    url: jdbc:h2:file:./data/ragdemo;AUTO_SERVER=FALSE;DB_CLOSE_ON_EXIT=FALSE
     username: sa
     password: ""
   jpa:

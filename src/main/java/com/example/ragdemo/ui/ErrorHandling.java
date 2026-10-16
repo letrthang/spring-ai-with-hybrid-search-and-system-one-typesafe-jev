@@ -27,10 +27,30 @@ public class ErrorHandling implements VaadinServiceInitListener {
 
     static void handle(ErrorEvent event) {
         Throwable e = event.getThrowable();
+        if (clientGone(e)) {
+            // the browser closed the connection (tab closed, network drop, redeploy): nothing to show, not a bug
+            log.debug("client went away: {}", Background.message(e));
+            return;
+        }
         log.error("UI error: {}", Background.message(e), e);
         UI ui = UI.getCurrent();
         if (ui == null || ui.isClosing()) return;
         Notification.show(Tr.t("common.unexpectedError", Background.message(e)), 6000, Notification.Position.BOTTOM_CENTER)
                 .addThemeVariants(NotificationVariant.ERROR);
+    }
+
+    /** "Broken pipe", "Connection reset", Tomcat's ClientAbortException — anywhere in the cause chain. */
+    static boolean clientGone(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            String name = t.getClass().getSimpleName();
+            String message = t.getMessage() == null ? "" : t.getMessage();
+            if (name.equals("ClientAbortException") || name.equals("EofException")
+                    || (t instanceof java.io.IOException
+                    && (message.contains("Broken pipe") || message.contains("Connection reset")))) {
+                return true;
+            }
+            if (t.getCause() == t) break;
+        }
+        return false;
     }
 }
