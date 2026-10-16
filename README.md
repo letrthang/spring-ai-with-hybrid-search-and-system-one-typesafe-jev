@@ -78,8 +78,10 @@ You only need **two accounts**. Everything else works out of the box.
 | ☁️ | **Hosting** | Render (free plan) | nothing to run locally | — |
 
 Enter everything in the app's **🔑 Key Management** menu (System 2 models are picked from a dropdown — 🆓 free first,
-💲 paid below). Keys are saved in the app's local file DB and read on every API call. On Render the disk is not
-persistent, so after a restart or redeploy you enter them again.
+💲 paid below). Keys are saved in the app's local file DB and read on every API call. Default keys can come from
+environment variables (`RAGDEMO_WEAVIATE_URL`, `RAGDEMO_WEAVIATE_KEY`, `RAGDEMO_OPENROUTER_KEY` — on Render:
+service → **Environment**); a key saved in 🔑 Key Management wins over them, 🗑 Clear goes back to them. Render's disk
+is not persistent, so saved keys are lost on a restart or redeploy; the environment defaults stay.
 
 ### Quick start
 

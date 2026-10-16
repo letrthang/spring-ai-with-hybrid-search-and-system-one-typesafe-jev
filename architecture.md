@@ -240,7 +240,11 @@ step, kept out to stay simple); `ChatMemory` (chat history is saved by `ChatHist
 
 - Every API call reads its key from H2 **at the moment of the call**, so a newly saved key works at once.
 - Keys are never logged, never shown in full (only `••••abcd`), never put in a trace hop, never committed.
-- On Render the disk is not persistent: a restart, redeploy or wake-up starts with an empty DB → enter the keys again.
+- Order of a key: **saved in 🔑 Key Management** → else **environment variable** (`RAGDEMO_WEAVIATE_URL`,
+  `RAGDEMO_WEAVIATE_KEY`, `RAGDEMO_OPENROUTER_KEY`, set on Render under Environment) → else not set. 🗑 Clear deletes
+  the saved one, so the environment default applies again.
+- On Render the disk is not persistent: a restart, redeploy or wake-up starts with an empty DB → saved keys are gone,
+  the environment defaults remain.
 
 ### When a service is down
 
