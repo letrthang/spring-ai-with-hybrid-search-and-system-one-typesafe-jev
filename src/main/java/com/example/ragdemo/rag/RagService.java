@@ -15,6 +15,7 @@ import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.rag.Query;
 import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugmenter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -41,6 +42,9 @@ import java.util.function.Consumer;
  * they are called one by one in plain code, so every step can be timed and drawn in 🔀 Data flow.
  *
  * <p>All three services are required: if one fails, the flow stops there and the answer says which and why.
+ *
+ * <p>🛠 Agentic mode ({@code ask(question, true, …)}): System 2 decides what to look up with tools instead — see
+ * {@link RagAgent}. Its answer goes through the same ⚡ verify → 🧠 learn step.
  */
 @Service
 public class RagService {
@@ -85,15 +89,24 @@ public class RagService {
     private final SystemTwoClient systemTwo;
     private final LearnedAnswers learned;
     private final AnswerVerifier verifier;
+    private final RagAgent agent;
 
+    @Autowired
     public RagService(HybridRetriever retriever, SystemOneFilter filter, SystemOneReranker reranker,
-                      SystemTwoClient systemTwo, LearnedAnswers learned, AnswerVerifier verifier) {
+                      SystemTwoClient systemTwo, LearnedAnswers learned, AnswerVerifier verifier, RagAgent agent) {
         this.retriever = retriever;
         this.filter = filter;
         this.reranker = reranker;
         this.systemTwo = systemTwo;
         this.learned = learned;
         this.verifier = verifier;
+        this.agent = agent;
+    }
+
+    /** The fixed pipeline only (tests). */
+    RagService(HybridRetriever retriever, SystemOneFilter filter, SystemOneReranker reranker,
+               SystemTwoClient systemTwo, LearnedAnswers learned, AnswerVerifier verifier) {
+        this(retriever, filter, reranker, systemTwo, learned, verifier, null);
     }
 
     /** The stages a question goes through, for the live progress chips on the Chat page (LEARN = verify + save). */
@@ -109,12 +122,19 @@ public class RagService {
 
     /** As {@link #ask(String)}, telling {@code onProgress} each time a stage starts (called on the worker thread). */
     public RagAnswer ask(String question, Consumer<Progress> onProgress) {
+        return ask(question, false, onProgress);
+    }
+
+    /** {@code agentic}: 🛠 System 2 picks its tools ({@link RagAgent}) instead of the fixed pipeline. */
+    public RagAnswer ask(String question, boolean agentic, Consumer<Progress> onProgress) {
         FlowRecorder flow = new FlowRecorder();
         List<TraceLine> trace = new ArrayList<>();
         Map<String, Source> sources = new LinkedHashMap<>();   // passage id → what we know about it
         flow.call(Actor.USER, Actor.APP, Msg.of("flow.question"), 0, 0, Msg.raw(question));
         log.info("▶ RAG ask: \"{}\"", FlowRecorder.shorten(question));
         try {
+            if (agentic) return askAgent(question, flow, trace, sources, onProgress);
+
             // ---- 1. self-learning: a very similar question answered before? reuse it if System 1 agrees
             onProgress.accept(new Progress(Stage.SEARCH, Msg.of("progress.lookup")));
             RagAnswer reused = tryReuse(question, flow, trace, onProgress);
@@ -167,7 +187,7 @@ public class RagService {
                 flow.reply(Actor.APP, Actor.USER, Msg.of("flow.noPassage"), flow.now(), Msg.of("flow.noPassage.summary"));
                 trace.add(new TraceLine("trace.step.SYSTEM2", Msg.of("trace.system2.notCalled")));
                 log.info("  ■ no passage kept → System 2 not called ({} ms)", flow.now());
-                return done(question, NOTHING_KEPT, sources, trace, flow, null, null, null, null);
+                return done(question, NOTHING_KEPT, sources, trace, flow, null, null, null, null, null);
             }
 
             // ---- 5. augment: number the passages and put them into the prompt
@@ -204,7 +224,7 @@ public class RagService {
             RagAnswer.Learning learning = learn(question, answer, best, flow, trace);
             flow.reply(Actor.APP, Actor.USER, Msg.of("flow.done"), flow.now(), Msg.raw(answer.text()));
             log.info("✔ RAG done in {} ms: \"{}\"", flow.now(), FlowRecorder.shorten(answer.text()));
-            return done(question, answer.text(), sources, trace, flow, answer.model(), null, null, learning);
+            return done(question, answer.text(), sources, trace, flow, answer.model(), null, null, learning, null);
 
         } catch (SystemDownException down) {
             // a required service failed: stop here, and show how far the question got
@@ -212,8 +232,29 @@ public class RagService {
             log.warn("⛔ RAG stopped after {} ms — {} is not available: {}", flow.now(), down.service(), down.reason());
             trace.add(new TraceLine("trace.step.stopped." + down.service().name(), down.reason()));
             return done(question, null, sources, trace, flow, null,
-                    new RagAnswer.Failure(down.service(), down.reason()), null, null);
+                    new RagAnswer.Failure(down.service(), down.reason()), null, null, null);
         }
+    }
+
+    /**
+     * 🛠 Agentic mode: the agent searches, checks and looks things up as it decides; its answer is then verified and
+     * learned like any other. No automatic ♻️ reuse first — find_learned_answer is one of the agent's tools.
+     */
+    private RagAnswer askAgent(String question, FlowRecorder flow, List<TraceLine> trace, Map<String, Source> sources,
+                               Consumer<Progress> onProgress) {
+        if (agent == null) throw new IllegalStateException("agentic mode is not wired");
+        log.info("  🛠 agentic mode: System 2 picks its tools (at most {} calls)", RagAgent.MAX_TOOL_CALLS);
+        RagAgent.Run run = agent.run(question, flow, trace, sources, onProgress);
+        SystemTwoClient.Answer answer = run.answer();
+        RagAnswer.Learning learning = null;
+        if (!run.passages().isEmpty()) {   // nothing to check an answer against when no passage was given
+            onProgress.accept(new Progress(Stage.LEARN, Msg.of("progress.learn")));
+            learning = learn(question, answer, run.passages(), flow, trace);
+        }
+        flow.reply(Actor.APP, Actor.USER, Msg.of("flow.done"), flow.now(), Msg.raw(answer.text()));
+        log.info("✔ 🛠 agent done in {} ms ({} rounds, {} tool calls): \"{}\"", flow.now(), run.agent().rounds(),
+                run.agent().toolCalls(), FlowRecorder.shorten(answer.text()));
+        return done(question, answer.text(), sources, trace, flow, answer.model(), null, null, learning, run.agent());
     }
 
     /**
@@ -259,7 +300,7 @@ public class RagService {
         flow.reply(Actor.APP, Actor.USER, Msg.of("flow.learned.reused"), flow.now(), Msg.raw(l.answer()));
         log.info("✔ ♻️ reused a learned answer (distance {}, System 1 answers {}) in {} ms", l.distance(), fits, flow.now());
         return done(question, l.answer(), sources, trace, flow, l.model(), null,
-                new RagAnswer.Reuse(l.question(), l.distance(), fits), null);
+                new RagAnswer.Reuse(l.question(), l.distance(), fits), null, null);
     }
 
     /** Step 7 — verify the new answer with System 1 and, if it passes every gate, save it as learned. */
@@ -298,12 +339,12 @@ public class RagService {
 
     private RagAnswer done(String question, String text, Map<String, Source> sources, List<TraceLine> trace,
                            FlowRecorder flow, String model, RagAnswer.Failure failure, RagAnswer.Reuse reuse,
-                           RagAnswer.Learning learning) {
+                           RagAnswer.Learning learning, RagAnswer.Agent agentRun) {
         long total = flow.now();
         List<TraceLine> lines = new ArrayList<>(trace);
         lines.add(new TraceLine("trace.step.total", Msg.of("trace.total", total)));
         return new RagAnswer(question, text, List.copyOf(sources.values()), lines, flow.hops(), model, total, failure,
-                reuse, learning);
+                reuse, learning, agentRun);
     }
 
     private static String scores(Map<String, Object> m) {
@@ -327,7 +368,7 @@ public class RagService {
         return context.toString();
     }
 
-    private static Source source(Document d, Integer citation) {
+    static Source source(Document d, Integer citation) {
         Map<String, Object> m = d.getMetadata();
         return new Source(title(d), str(m.get("source")), integer(m.get("chunkNo")), d.getText(),
                 integer(m.get("bm25Rank")), integer(m.get("vectorRank")), dbl(m.get("rrfScore")),

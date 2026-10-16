@@ -269,6 +269,41 @@ language only).
 "🧠 Not learned — …"; step 2 "🧠 Not learned — System 1 was busy" while the answer itself is shown normally.
 (Automated: `AnswerVerifierTest`, `RagServiceTest` reuse / no-reuse / rejected, `WeaviateIT` save + closest.)
 
+---
+
+## D3. 🛠 Agentic mode
+
+### TC-36 · The switch
+1. 💬 Chat → tick **🛠 Agentic mode** (ℹ️ next to it). 2. Reload the page. 3. Untick it.
+
+**Expected:** ticked → the 🧭 diagram shows "🛠 Agent tools: search · learned · H2 ↺" above System 2 with an ↑ / ↓ loop
+(centred, nothing overlaps); after reload it is still ticked (same browser session); unticked → the loop disappears.
+While a question runs the switch is disabled. The ℹ️ lesson opens in EN / VI / JA.
+
+### TC-37 · A question that needs two look-ups
+1. Agentic mode on → ask **Compare PCR and qPCR — what is different?** (example button).
+2. Open 🔀 Data flow and 🔬 Trace.
+
+**Expected:** an answer that contrasts both, citing [n]; chip "🛠 Agent · N rounds · M tool calls" (tooltip: each call,
+in order); 🧠 Learn chip as usual. Data flow: "🛠 round 1: prompt + tools → <model>" → "🛠 asks for 1 tool call(s)" →
+"🛠 search_passages" → "⚡ check 4 passages" → "kept k of 4" → "🛠 1 tool result(s) → back to System 2" → … →
+"answer" → "7. ⚡ verify" → "8. 🧠 learn" → "9. answer + sources". A model without tool support (e.g. the first free
+model) is skipped like a busy one (log "model not found (404) → next model").
+
+### TC-38 · History from H2
+1. Agentic mode on → ask **What did I ask before?**
+
+**Expected:** the agent calls `recent_questions`; Data flow gets a 💾 H2 lifeline ("🛠 recent_questions" →
+"N questions"); the answer lists earlier questions. No passage → no 🧠 Learn chip.
+
+### TC-39 · Limits and failures
+1. Agentic mode on → ask several questions within a minute (the public Laya route gets busy).
+2. Turn Weaviate off (wrong key in 🔑) and ask.
+
+**Expected:** at most 6 tool calls per question; if System 1 is busy after the first search, Trace shows "… ⚡ System 1
+not available … — answered from the passages it already had" and the answer still comes; if the very first search
+fails, the question stops like the pipeline ("⛔ 🗄️ Weaviate" / "⛔ ⚡ System 1"). (Automated: `RagAgentTest`.)
+
 ## E. Robustness
 
 ### TC-31 · No dead threads, no leaking connections
@@ -298,7 +333,7 @@ shutdown complete" and no "Database is already closed"; keys still work (environ
 | TC-05 | ✅ 2026-10-16 Local-Real | Weaviate ● online, System 1 ● online, System 2 ● offline (invalid local key) |
 | TC-06 | ✅ 2026-10-16 Local | lesson opens from all three fields |
 | TC-07 | ✅ 2026-10-16 Local-Real | "Search 466 models (18 free)"; first default nemotron-3-ultra-550b |
-| TC-08 | ✅ 2026-10-16 Render + automated | "1500 passages"; stray record gone (`WeaviateIT`) |
+| TC-08 | ✅ 2026-10-17 Local → Weaviate Cloud + automated | "3000 passages" (1,000 × en / vi / ja) in ~15 s; stray record gone (`WeaviateIT`) |
 | TC-09 | ✅ 2026-10-16 automated + Local | count first, then pages |
 | TC-10 | ✅ 2026-10-16 Local-Real | list `#, Title, Source` · BM25 `+BM25` · Vector `+Vector` · Hybrid `+BM25, Vector, RRF` |
 | TC-11 | ✅ 2026-10-16 Local-Real | #1 "Gases dissolving in liquids (Henry's law)" (BM25 7.88, vector 0.437) |
@@ -323,10 +358,14 @@ shutdown complete" and no "Database is already closed"; keys still work (environ
 | TC-30 | ✅ 2026-10-16 Local | |
 | TC-31 | ✅ 2026-10-16 Local | threads 83 → 121 under load → 67 idle; TCP 11 → 9 → 4 |
 | TC-32 | ✅ 2026-10-16 Render logs | 18:29:26 graceful shutdown, no "already closed" |
-| TC-33 | ⬜ after deploy (automated ✅: `RagServiceTest`, `WeaviateIT`) | |
-| TC-34 | ⬜ after deploy (automated ✅: `RagServiceTest` reuse, `WeaviateIT` closest + language) | |
+| TC-33 | ✅ 2026-10-17 Local-Real (Weaviate Cloud) | "🧠 Learned ✅ — ⚡ answers 0.94 · grounded 0.90 · injection 0.00" |
+| TC-34 | ✅ 2026-10-17 Local-Real (Weaviate Cloud) | same question ♻️ 0.378 · ⚡ 0.95; "What does a RAS do?" ♻️ 0.409 · ⚡ 0.93 — ~1.5 s instead of ~65 s |
 | TC-35 | ✅ automated (`AnswerVerifierTest`, `RagServiceTest`) | |
+| TC-36 | ✅ 2026-10-17 Local | loop centred over System 2 (measured), switch kept per session |
+| TC-37 | ✅ 2026-10-17 Local-Real | nemotron-ultra skipped (no tools, 404) → nemotron-super: 3 rounds · 2 searches · learned ✅ 0.84 |
+| TC-38 | ✅ automated (`RagAgentTest` H2 lifeline) | |
+| TC-39 | ✅ automated (`RagAgentTest` limit, busy after first search, fail closed) + Local (Laya busy seen live) | |
 
-**Automated tests** (`./mvnw test`, 2026-10-16): **64 tests, 0 failures** — incl. `WeaviateIT` (real Weaviate 1.40 in
-Docker, 1,500 passages), `DatabaseBrowserTest` (real H2), `LayaClientHttpTest` / `SystemTwoClientHttpTest` (fake HTTP
+**Automated tests** (`./mvnw test`, 2026-10-17): **85 tests, 0 failures** — incl. `WeaviateIT` (real Weaviate 1.40 in
+Docker, 3,000 passages), `RagAgentTest` (🛠 scripted model: tool loop, limits, H2, fail closed), `DatabaseBrowserTest` (real H2), `LayaClientHttpTest` / `SystemTwoClientHttpTest` (fake HTTP
 servers on localhost).

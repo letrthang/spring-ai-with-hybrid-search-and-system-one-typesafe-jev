@@ -373,6 +373,7 @@
 /* 🧠 self-learning chip on an answer: ♻️ reused (indigo), 🧠 learned (emerald), not learned (muted) — AA text */
 .rd-learn-chip { align-self: flex-start; }
 .rd-learn-reused { color: light-dark(#3730a3, #c7d2fe); border-color: light-dark(#a5b4fc, #4f46e5); background: light-dark(#eef2ff, rgba(129, 140, 248, .14)); }
+.rd-agent-chip { color: light-dark(#5b21b6, #ddd6fe); border-color: light-dark(#c4b5fd, #7c3aed); background: light-dark(#f5f3ff, rgba(167, 139, 250, .14)); }
 .rd-learn-saved { color: light-dark(#047857, #6ee7b7); border-color: light-dark(#6ee7b7, #059669); background: light-dark(#ecfdf5, rgba(52, 211, 153, .12)); }
 
 /* 💾 App database card in full screen: the grid takes all the room left (its inline 360px height is overridden) */

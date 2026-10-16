@@ -29,7 +29,7 @@ public class SystemMap extends Component {
         for (String key : new String[] {"title", "lead", "question", "questionSub", "weaviate", "weaviateSub", "rrf",
                 "passages", "passagesSub", "system1", "system1Sub", "system2", "system2Sub", "answer", "answerSub",
                 "decision", "online", "waiting", "offline", "checking", "reuse", "reuseSub", "verify",
-                "learnedStore", "learnedCount"}) {
+                "learnedStore", "learnedCount", "agentTools"}) {
             labels.put(key, Tr.t("map." + key));
         }
         labels.put("whatIsThis", Tr.t("common.whatIsThis"));
@@ -52,6 +52,11 @@ public class SystemMap extends Component {
     /** How many answers are learned (shown on the learn branch); -1 = unknown. */
     public void setLearned(long count) {
         getElement().setProperty("learned", count);
+    }
+
+    /** 🛠 Agentic mode on: the diagram shows System 2's tool loop. */
+    public void setAgentic(boolean agentic) {
+        getElement().setProperty("agentic", agentic);
     }
 
     /** A service's status changed: its pill colour, and the connector that leads into it. */

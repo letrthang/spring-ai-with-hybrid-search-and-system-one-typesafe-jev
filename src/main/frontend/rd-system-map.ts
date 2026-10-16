@@ -4,8 +4,8 @@ import { customElement, property } from 'lit/decorators.js';
 /**
  * <rd-system-map> — "How it works": the RAG pipeline as one live diagram (💬 Chat page).
  *
- *   ♻️ learned answers? (reuse if ⚡ agrees)
- *         ↑
+ *   ♻️ learned answers? (reuse if ⚡ agrees)                          🛠 agent tools ↺   (agentic mode only)
+ *         ↑                                                                   ↑↓
  *   💬 Question → 🗄️ Weaviate → (RRF) → 📄 Top passages → ⚡ System 1 → 🧠 System 2 → ✅ Answer
  *                                                            ╰┈┈→ 🚫 nothing kept     ↓
  *                                                                          ⚡ verify → 🧠 learned answers · N
@@ -15,6 +15,7 @@ import { customElement, property } from 'lit/decorators.js';
  *   states  WEAVIATE / SYSTEM1 / SYSTEM2 → READY | WAITING | DOWN | UNKNOWN
  *   tips    the same keys → the full status sentence (tooltip)
  *   learned how many answers are learned (-1 = unknown)
+ *   agentic 🛠 agentic mode on: System 2 calls tools (search · learned · H2) in a loop — drawn above System 2
  * Clicking an ℹ️ fires `rd-hint` with { hint } so the server opens that lesson.
  *
  * Connectors: a dashed track that flows toward the arrow, plus a glowing particle; particles are staggered so the
@@ -40,6 +41,7 @@ export class RdSystemMap extends LitElement {
   @property({ type: Object }) states: Record<string, State> = {};
   @property({ type: Object }) tips: Record<string, string> = {};
   @property({ type: Number }) learned = -1;
+  @property({ type: Boolean }) agentic = false;
 
   private t(key: string): string {
     return this.labels[key] ?? key;
@@ -131,7 +133,15 @@ export class RdSystemMap extends LitElement {
             </div>
           </div>
           ${this.link(s1, s2, 3)}
-          ${this.node(s2)} ${this.link(s2, a, 4)}
+          <div class="column">
+            ${this.agentic ? html`
+              <div class="branch top tools ${this.state(s2)}">
+                <button class="decision agent" @click=${() => this.hint('AGENTIC')}>🛠 ${this.t('agentTools')} ↺ <b>ℹ</b></button>
+                <div class="loop"><div class="rise"></div><div class="drop tool"></div></div>
+              </div>` : nothing}
+            ${this.node(s2)}
+          </div>
+          ${this.link(s2, a, 4)}
           <div class="column last">
             ${this.node(a)}
             <div class="branch ${store}">
@@ -164,6 +174,7 @@ export class RdSystemMap extends LitElement {
       --rd-warn-text: light-dark(#b45309, #fcd34d);
       --rd-bad-text: light-dark(#b91c1c, #fca5a5);
       --rd-learn-text: light-dark(#3730a3, #c7d2fe);
+      --rd-agent-text: light-dark(#5b21b6, #ddd6fe);
       --rd-muted: light-dark(#475569, #cbd5e1);
       --rd-surface: light-dark(#ffffff, #151a24);
       --rd-line: light-dark(#e2e8f0, #2b3443);
@@ -327,6 +338,19 @@ export class RdSystemMap extends LitElement {
     }
     .branch.DOWN .rise, .branch.UNKNOWN .rise, .branch.DOWN .drop.save, .branch.UNKNOWN .drop.save { animation: none; }
 
+    /* 🛠 agentic mode: System 2 ↑ asks for a tool, ↓ gets its result — a loop above System 2, centred on it */
+    .branch.top.tools { left: 50%; transform: translateX(-50%); align-items: center; }
+    .branch.top.tools .rise { margin-left: 0; }   /* not the reuse branch's offset: the loop is centred on System 2 */
+    .loop { display: flex; gap: 12px; margin-top: 8px; }
+    .loop .rise { margin: 0; background: repeating-linear-gradient(0deg, var(--rd-violet) 0 5px, transparent 5px 9px); background-size: 100% 9px; }
+    .loop .rise::after { border-bottom-color: var(--rd-violet); }
+    .loop .drop.tool { background: repeating-linear-gradient(180deg, var(--rd-teal) 0 5px, transparent 5px 9px); background-size: 100% 9px; }
+    .loop .drop.tool::after { border-top-color: var(--rd-teal); }
+    .decision.agent {
+      margin-top: 0; color: var(--rd-agent-text);
+      background: color-mix(in srgb, var(--rd-violet) 10%, var(--rd-surface)); border: 1px dashed var(--rd-violet);
+    }
+
     footer { display: flex; justify-content: flex-end; gap: 14px; font-size: .72rem; color: var(--rd-muted); }
     footer span { display: inline-flex; align-items: center; gap: 5px; }
     footer i.READY { background: var(--rd-emerald); }
@@ -378,7 +402,7 @@ export class RdSystemMap extends LitElement {
       .branch { position: static; transform: none; flex-direction: row; justify-content: center; margin-top: 8px; }
       .drop, .rise { display: none; }
       .branch.top { order: 2; }   /* stacked: the reuse note sits under the question, like the others */
-      .branch.top, .column.last .branch { align-items: center; }
+      .branch.top, .branch.top.tools, .column.last .branch { align-items: center; transform: none; }
       .decision { margin-top: 0; }
       .link, .link.labelled { flex: 0 0 30px; min-width: 0; height: auto; }
       .track {

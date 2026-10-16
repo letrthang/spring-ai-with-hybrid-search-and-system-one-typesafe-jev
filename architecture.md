@@ -109,6 +109,28 @@ supports it (≥ 0.55) and it gives no orders to an AI (injection < 0.30) — `A
 `kind = passage`, so generated text never becomes a "fact"; 📥 Load sample data rebuilds the collection and clears them.
 If System 1 is busy, the answer is simply not learned (it is still shown).
 
+### 🛠 Agentic mode: System 2 picks its tools
+
+```
+question ─► 🧠 System 2 (prompt + 3 tool descriptions)
+              │  replies with tool calls, e.g. search_passages("PCR qPCR difference")
+              ▼
+           ☕ App runs each call ── search_passages ──► 🗄️ Weaviate ─► ⚡ System 1 keeps / drops ─► kept passages [n]
+              │                 ── find_learned_answer ─► 🗄️ kind = learned ─► ⚡ fits? ─► answer + its passages [n]
+              │                 ── recent_questions ──► 💾 H2 (SELECT, read-only)
+              ▼
+           🧠 System 2 (conversation + tool results) … repeat — at most 6 tool calls; the last round has no tools
+              ▼
+           answer citing [n] ─► ⚡ verify ─► 🧠 learn          (same as the pipeline)
+```
+
+`RagAgent` runs this loop itself: `SystemTwoClient.step` sends the conversation and the `ToolCallback`s to the
+**`ChatModel`** (not `ChatClient`, whose tool-calling advisor would run the tools for us), the model answers with
+`AssistantMessage.ToolCall`s, the app calls each `ToolCallback`, adds a `ToolResponseMessage` and asks again. That is
+how every call is timed, drawn in 🔀 Data flow, checked by System 1 and limited. Passages keep one number [n] for the
+whole question. A required service that fails before any passage was checked stops the question (fail closed); later,
+the tool tells the agent "not available, answer from what you have" — unchecked text never reaches the model.
+
 ## 4. System 1 vs System 2
 
 | | ⚡ System 1 (Laya) | 🧠 System 2 (OpenRouter LLM) |
@@ -163,11 +185,13 @@ src/main/java/com/example/ragdemo/
 │   ├── SystemOneReranker.java     Spring AI DocumentPostProcessor: sort the kept ones by "answers", best 3
 │   └── SystemOneHealth.java       GET /health
 ├── system2/                       🧠 OpenRouter
-│   ├── SystemTwoClient.java       Spring AI OpenAiChatModel; one OpenAI client pair per key (stale ones closed first)
+│   ├── SystemTwoClient.java       Spring AI OpenAiChatModel; one OpenAI client pair per key (stale ones closed first);
+│   │                              step(): one 🛠 agent round — conversation + tools → text or tool calls
 │   ├── OpenRouterModels.java      the model list (🆓 free first, 💲 paid) with context size and price
 │   └── SystemTwoHealth.java       GET /key (OpenRouter) or /models — costs no tokens
 ├── rag/                           🔗 the pipeline
 │   ├── RagService.java            the steps above, top to bottom (+ ♻️ reuse first, 🧠 learn last); logs every step
+│   ├── RagAgent.java              🛠 agentic mode: the tool loop and its 3 @Tool methods (search · learned · H2)
 │   ├── FlowRecorder.java          collects FlowHop records for 🔀 Data flow
 │   ├── RagAnswer.java             text + sources + trace + flow (+ failure, ♻️ reuse, 🧠 learning)
 │   ├── Msg.java                   a text as key + arguments, translated only when shown (see i18n below)
@@ -230,6 +254,8 @@ classes to learn first, in the order a question meets them:
 | `openai.OpenAiChatOptions` | Settings for one model: base URL, API key, model name, timeout, retries. | `SystemTwoClient`: one model at a time, `maxRetries(0)` so we move on to the next model ourselves |
 | `chat.client.ChatClient` | The fluent API on top of a `ChatModel`: `.prompt().system(…).user(…).call()`. | `SystemTwoClient` — sends the augmented prompt |
 | `chat.model.ChatResponse` + `chat.metadata.Usage` | The answer text plus metadata: model used, prompt / completion tokens. | `SystemTwoClient` → 🔬 Trace (`tokens in / out`) |
+| `tool.annotation.Tool` / `ToolParam`, `support.ToolCallbacks`, `tool.ToolCallback` | A Java method the LLM may call: name, description and JSON parameters are generated from the method; `ToolCallbacks.from(object)` turns its `@Tool` methods into callbacks. | `RagAgent.Tools` — `search_passages`, `find_learned_answer`, `recent_questions` |
+| `chat.messages.AssistantMessage.ToolCall`, `ToolResponseMessage` | The model's request to call a tool, and the app's answer to it, added to the conversation. | `RagAgent.run` — the agent loop (🛠 agentic mode) |
 
 How they fit together, as Spring AI sees the chain:
 
@@ -255,7 +281,9 @@ understand that advisor.
 
 **Not used, on purpose:** `VectorStore` / `WeaviateVectorStore` (vector search only, no BM25 — so `HybridRetriever`
 uses the Weaviate client directly); `QueryTransformer` / `MultiQueryExpander` (rewriting the question — a good next
-step, kept out to stay simple); `ChatMemory` (chat history is saved by `ChatHistoryService` in H2 instead).
+step, kept out to stay simple); `ChatMemory` (chat history is saved by `ChatHistoryService` in H2 instead);
+`ToolCallingAdvisor` (ChatClient's built-in tool loop — `RagAgent` runs the loop itself to time, draw and limit every
+call).
 
 ## 8. Keys and configuration
 

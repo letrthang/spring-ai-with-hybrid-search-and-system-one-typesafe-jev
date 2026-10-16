@@ -76,7 +76,11 @@ public class HybridRetriever implements DocumentRetriever {
      * {@code text} (the same topics exist in en / vi / ja; see {@link Lang}).
      */
     public Result search(String text, Mode mode, int limit) {
-        String lang = Lang.of(text);
+        return search(text, Lang.of(text), mode, limit);
+    }
+
+    /** As {@link #search(String, Mode, int)}, in a given language (🛠 the agent searches in the question's language). */
+    public Result search(String text, String lang, Mode mode, int limit) {
         // the question's language, and passages only (learned answers live in the same collection — see DemoDocCollection)
         Filter sameLanguage = Filter.and(Filter.property("lang").eq(lang), DemoDocCollection.passages());
         return weaviate.call("search", client -> {

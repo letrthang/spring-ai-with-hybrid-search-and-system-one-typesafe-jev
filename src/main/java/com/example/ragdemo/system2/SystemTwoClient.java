@@ -11,6 +11,10 @@ import com.openai.errors.OpenAIServiceException;
 import io.micrometer.observation.ObservationRegistry;
 import jakarta.annotation.PreDestroy;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -97,6 +101,56 @@ public class SystemTwoClient {
             }
         }
         throw new SystemDownException(SYSTEM2, "status.system2.allFailed", String.join("; ", skipped));
+    }
+
+    /** One step of 🛠 agentic mode: the model's reply — a final text, or tool calls — and which model gave it. */
+    public record Step(AssistantMessage message, String model, Integer tokensIn, Integer tokensOut, long ms,
+                       List<String> skipped) {
+    }
+
+    /**
+     * 🛠 One agent step: the conversation so far and the tools on offer → the model's reply. The tools are only
+     * <b>described</b> to the model; it answers with the calls it wants, and the app runs them (the chat model alone
+     * never executes a tool — that is ChatClient's advisor, not used here), so every call can be timed, drawn and
+     * limited. {@code model} null tries the models in order (a model without tool support is skipped like a busy
+     * one); otherwise the model chosen in the first step answers the whole conversation.
+     */
+    public Step step(List<Message> conversation, List<ToolCallback> tools, String model) {
+        String key = keys.system2Key();
+        if (key.isBlank()) throw new SystemDownException(SYSTEM2, "status.system2.noKey");
+        String baseUrl = keys.system2BaseUrl();
+
+        List<String> skipped = new ArrayList<>();
+        for (String m : model == null ? keys.system2Models() : List.of(model)) {
+            long t0 = System.currentTimeMillis();
+            log.debug("🧠🛠 step with {} ({} messages, {} tools)", m, conversation.size(), tools.size());
+            try {
+                Prompt prompt = new Prompt(conversation, OpenAiChatOptions.builder().model(m).toolCallbacks(tools).build());
+                ChatResponse response = callModel(baseUrl, key, prompt);
+                AssistantMessage message = response.getResult() == null ? null : response.getResult().getOutput();
+                if (message == null || (!message.hasToolCalls() && (message.getText() == null
+                        || message.getText().isBlank()))) {
+                    skipped.add(m + ": empty answer");
+                    continue;
+                }
+                Usage usage = response.getMetadata().getUsage();
+                return new Step(message, m, usage == null ? null : usage.getPromptTokens(),
+                        usage == null ? null : usage.getCompletionTokens(), System.currentTimeMillis() - t0, skipped);
+            } catch (RuntimeException e) {
+                int status = statusOf(e);
+                if (status == 401 || status == 403) {
+                    throw new SystemDownException(SYSTEM2, "status.invalidKey");
+                }
+                skipped.add(m + ": " + reason(e, status));
+                log.info("🧠🛠 {} failed: {} → next model", m, reason(e, status));
+            }
+        }
+        throw new SystemDownException(SYSTEM2, "status.system2.allFailed", String.join("; ", skipped));
+    }
+
+    /** One agent request to the chat model (no ChatClient, so no tool is run for us). Tests override this. */
+    protected ChatResponse callModel(String baseUrl, String key, Prompt prompt) {
+        return chatModel(baseUrl, key).call(prompt);
     }
 
     /** One request to one model. Tests override this with a fake. */

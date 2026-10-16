@@ -36,7 +36,9 @@ public enum Hint {
     OWN_KEYS(null, "KEYS", "WEAVIATE", "SYSTEM2"),
     DATABASE("https://www.h2database.com/html/main.html", "HISTORY", "KEYS"),
     LEARNING(null, "SYSTEM1", "SYSTEM2", "WEAVIATE", "INJECTION"),
-    MODELS("https://openrouter.ai/models", "SYSTEM2", "TRACE");
+    MODELS("https://openrouter.ai/models", "SYSTEM2", "TRACE"),
+    AGENTIC("https://docs.spring.io/spring-ai/reference/api/tools.html", "SYSTEM2", "WEAVIATE", "SYSTEM1", "LEARNING",
+            "DATABASE", "DATA_FLOW");
 
     /** Where to read more (may be null). */
     public final String learnMore;
