@@ -377,4 +377,5 @@
 
 /* 💾 App database card in full screen: the grid takes all the room left (its inline 360px height is overridden) */
 .rd-fullscreen.rd-card { overflow: auto; }
-.rd-fullscreen .rd-db-grid { flex: 1 1 auto; height: auto !important; min-height: 240px; }
+.rd-fullscreen .rd-db-grid,
+.rd-fullscreen .rd-learned-grid { flex: 1 1 auto; height: auto !important; min-height: 240px; }

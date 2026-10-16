@@ -2,6 +2,8 @@ package com.example.ragdemo.ui;
 
 import com.example.ragdemo.weaviate.LearnedAnswers;
 import com.example.ragdemo.weaviate.LearnedAnswers.Learned;
+import com.vaadin.flow.component.Key;
+import com.vaadin.flow.component.Shortcuts;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
@@ -37,8 +39,17 @@ public class LearnedCard extends Div {
         refresh.addThemeVariants(ButtonVariant.TERTIARY);
         Button forget = new Button(Tr.t("learned.forget"), e -> confirmForget());
         forget.addThemeVariants(ButtonVariant.TERTIARY, ButtonVariant.ERROR);
-        Div bar = new Div(InfoHint.with(title, Hint.LEARNING), count, refresh, forget);
+        // ⛶ full screen (Esc or ⛶ again to leave), like the 💾 App database card
+        Button fullScreen = new Button("⛶", e -> toggleFullScreen());
+        fullScreen.addThemeVariants(ButtonVariant.TERTIARY);
+        fullScreen.addClassName("ml-auto");
+        fullScreen.getElement().setAttribute("title", Tr.t("common.fullScreenEsc"));
+        fullScreen.getElement().setAttribute("aria-label", Tr.t("common.fullScreen"));
+        Div bar = new Div(InfoHint.with(title, Hint.LEARNING), count, refresh, forget, fullScreen);
         bar.addClassNames("flex", "flex-wrap", "items-center", "gap-3");
+        Shortcuts.addShortcutListener(this, () -> {
+            if (hasClassName("rd-fullscreen")) toggleFullScreen();
+        }, Key.ESCAPE).listenOn(this);
 
         grid.addColumn(Learned::question).setHeader(Tr.t("learned.col.question")).setFlexGrow(3).setResizable(true);
         grid.addColumn(l -> shorten(l.answer())).setHeader(Tr.t("learned.col.answer")).setFlexGrow(4).setResizable(true);
@@ -49,6 +60,7 @@ public class LearnedCard extends Div {
         grid.addThemeVariants(GridVariant.ROW_STRIPES);
         grid.setEmptyStateText(Tr.t("learned.empty"));
         grid.setHeight("280px");
+        grid.addClassName("rd-learned-grid");
 
         add(bar, lead, grid);
         addAttachListener(e -> {
@@ -68,6 +80,11 @@ public class LearnedCard extends Div {
             count.setText(Tr.t("learned.count", n));
             grid.setItems(q -> learned.list(q.getOffset(), q.getLimit()).stream(), q -> n.intValue());
         });
+    }
+
+    private void toggleFullScreen() {
+        if (hasClassName("rd-fullscreen")) removeClassName("rd-fullscreen");
+        else addClassName("rd-fullscreen");
     }
 
     private void confirmForget() {
