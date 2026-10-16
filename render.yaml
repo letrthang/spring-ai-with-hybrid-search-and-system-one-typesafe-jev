@@ -1,0 +1,10 @@
+# Render Blueprint. The service is connected to this GitHub repo in the Render dashboard; Render redeploys on every
+# push to main. No secrets here: the Weaviate and OpenRouter keys are typed in the app's Key Management screen.
+services:
+  - type: web
+    name: spring-ai-with-hybrid-search-and-system-one-typesafe-jev
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /actuator/health
