@@ -71,7 +71,10 @@ class RagServiceTest {
     void happyPath_stepsInOrder_sourcesAndCitations() {
         RagService rag = new RagService(retriever(HITS, null), laya(SCORES, null), new SystemOneReranker(), llm());
 
-        RagAnswer a = rag.ask("How do I reset AER-01?");
+        List<RagService.Stage> stages = new ArrayList<>();
+        RagAnswer a = rag.ask("How do I reset AER-01?", p -> stages.add(p.stage()));
+
+        assertThat(stages).containsExactly(RagService.Stage.SEARCH, RagService.Stage.SYSTEM1, RagService.Stage.SYSTEM2);
 
         assertThat(a.failed()).isFalse();
         assertThat(a.text()).isEqualTo("Hold RESET for 5 seconds [1].");

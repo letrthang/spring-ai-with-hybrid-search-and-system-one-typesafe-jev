@@ -134,3 +134,17 @@
     margin: 2px 8px 8px; padding: 6px 8px; font-size: 12px; border-radius: 6px; overflow-wrap: anywhere;
     background: color-mix(in srgb, var(--vaadin-text-color) 5%, transparent);
 }
+
+/* ---- live progress steps: ⬜ waiting · ⏳ running · ✅ done · ⛔ failed ---- */
+.rd-step { transition: background .2s ease, opacity .2s ease; }
+.rd-step-waiting { opacity: .6; }
+.rd-step-active {
+    background: light-dark(#e0ecff, #1c2a44);
+    border-color: light-dark(#7aa7f7, #4a6fb3);
+    font-weight: 600;
+    animation: rd-pulse 1.4s ease-in-out infinite;
+}
+.rd-step-done { background: light-dark(#e8f6ec, #13281b); }
+.rd-step-failed { background: light-dark(#fdeaea, #2f1517); }
+@keyframes rd-pulse { 50% { box-shadow: 0 0 0 4px light-dark(rgba(59, 130, 246, .18), rgba(96, 165, 250, .22)); } }
+@media (prefers-reduced-motion: reduce) { .rd-step-active { animation: none; } }
