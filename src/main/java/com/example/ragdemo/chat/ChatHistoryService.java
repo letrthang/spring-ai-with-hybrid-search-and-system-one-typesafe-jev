@@ -68,6 +68,13 @@ public class ChatHistoryService {
         return sessions.count();
     }
 
+    /** The newest questions asked in this app, newest first — at most 10. Read-only: 🛠 the agent's H2 tool. */
+    @Transactional(readOnly = true)
+    public List<String> recentQuestions(int limit) {
+        return messages.findTop10BySenderOrderByCreatedAtDescIdDesc(ChatMessage.Sender.USER).stream()
+                .limit(Math.max(1, Math.min(10, limit))).map(ChatMessage::getText).toList();
+    }
+
     public List<ChatMessage> messages(String sessionId) {
         return messages.findBySessionIdOrderBySeq(sessionId);
     }

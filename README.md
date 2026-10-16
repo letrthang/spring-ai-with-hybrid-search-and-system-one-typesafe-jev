@@ -148,6 +148,23 @@ and every passage search filters `kind = passage`). When someone later asks a ve
 language, System 1 checks the stored answer fits the new question and the app returns it at once — ♻️ no System 2 call.
 The 🧭 diagram shows both lines; 🔎 Search Data → 🧠 Learned answers lists (and forgets) what was learned.
 
+## 🛠 Agentic mode
+
+A switch next to **🔎 Ask**. Off (default): the fixed pipeline above. On: 🧠 **System 2 gets tools and decides itself
+what to look up** — how often and with which words — then answers:
+
+| Tool | What it does |
+|---|---|
+| `search_passages(query)` | 🗄️ Weaviate hybrid search in the question's language; ⚡ System 1 checks every passage first, so the agent only ever sees kept ones |
+| `find_learned_answer(question)` | 🧠 a learned answer, if it is the same or close and ⚡ System 1 says it fits |
+| `recent_questions(limit)` | 💾 the newest questions asked in the app (H2, read-only) |
+
+The app runs the loop itself (Spring AI `@Tool` methods → `ToolCallback`s, sent to the `ChatModel`; the model replies
+with the calls it wants): at most **6 tool calls**, the last round offers no tools so the model has to answer. Every
+round and tool call is a hop in 🔀 Data flow and a line in 🔬 Trace; the 🧭 diagram shows the tool loop above System 2.
+The answer is then verified and learned like any other. Try **"Compare PCR and qPCR — what is different?"** — the
+agent usually searches twice. Not every free model supports tools: those are skipped like a busy one.
+
 ## When a service is down
 
 This is a demo of RAG with **all three services**, so all three are **required**: ⚡ **System 1**, 🧠 **System 2** and 🗄️ **Weaviate**. The 💬 Chat page shows a status pill for each: 🟢 Ready, 🟡 Waking up / busy / no data, or 🔴 Down.

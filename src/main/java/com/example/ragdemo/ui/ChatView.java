@@ -3,6 +3,7 @@ package com.example.ragdemo.ui;
 import com.example.ragdemo.chat.ChatHistoryService;
 import com.example.ragdemo.chat.ChatMessage;
 import com.example.ragdemo.chat.ChatSession;
+import com.example.ragdemo.rag.RagAgent;
 import com.example.ragdemo.rag.RagAnswer;
 import com.example.ragdemo.rag.RagService;
 import com.example.ragdemo.weaviate.LearnedAnswers;
@@ -19,6 +20,7 @@ import com.vaadin.flow.component.Shortcuts;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 import com.vaadin.flow.component.grid.GridVariant;
@@ -33,6 +35,7 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.HasDynamicTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouterLink;
+import com.vaadin.flow.server.VaadinSession;
 import com.vaadin.flow.shared.Registration;
 
 import java.time.ZoneId;
@@ -61,7 +64,9 @@ public class ChatView extends Div implements HasDynamicTitle {
     static final int RECHECK_SECONDS = 30;
     static final int MAX_QUESTION = 2000;
     /** i18n keys of the example questions under the question box. */
-    static final List<String> EXAMPLES = List.of("chat.example.1", "chat.example.2", "chat.example.3");
+    static final List<String> EXAMPLES = List.of("chat.example.1", "chat.example.2", "chat.example.3", "chat.example.4");
+    /** Session attribute: 🛠 agentic mode on for this browser session. */
+    private static final String AGENTIC = "rd-agentic";
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
             .withZone(ZoneId.systemDefault());
 
@@ -76,6 +81,7 @@ public class ChatView extends Div implements HasDynamicTitle {
     private final TextArea question = new TextArea();
     private final Span counter = new Span();
     private final Button ask = new Button(Tr.t("chat.ask"));
+    private final Checkbox agentic = new Checkbox(Tr.t("chat.agentic"));
     private final ProgressBar progress = new ProgressBar();
     private final Map<RagService.Stage, Span> steps = new EnumMap<>(RagService.Stage.class);
     private final Div stepRow = new Div();
@@ -164,7 +170,15 @@ public class ChatView extends Div implements HasDynamicTitle {
         ask.addClickListener(e -> submit());
         Span tip = new Span(Tr.t("chat.ctrlEnter"));
         tip.addClassNames("rd-muted", "text-xs");
-        Div actions = new Div(ask, counter, tip);
+        // 🛠 agentic mode: remembered for this browser session, shown on the diagram as System 2's tool loop
+        agentic.setValue(Boolean.TRUE.equals(VaadinSession.getCurrent().getAttribute(AGENTIC)));
+        agentic.getElement().setAttribute("title", Tr.t("chat.agenticTip", RagAgent.MAX_TOOL_CALLS));
+        agentic.addValueChangeListener(e -> {
+            VaadinSession.getCurrent().setAttribute(AGENTIC, e.getValue());
+            systemMap.setAgentic(e.getValue());
+        });
+        systemMap.setAgentic(agentic.getValue());
+        Div actions = new Div(ask, InfoHint.with(agentic, Hint.AGENTIC), counter, tip);
         actions.addClassNames("flex", "flex-wrap", "gap-3", "items-center");
 
         for (String key : EXAMPLES) {
@@ -326,6 +340,7 @@ public class ChatView extends Div implements HasDynamicTitle {
         question.setEnabled(ready && !busy);
         ask.setEnabled(ready && !busy && !question.getValue().isBlank());
         examples.setEnabled(ready && !busy);
+        agentic.setEnabled(!busy);
         progress.setVisible(busy);
 
         List<ServiceStatus> notReady = statuses.values().stream().filter(s -> !s.isReady()).toList();
@@ -358,10 +373,11 @@ public class ChatView extends Div implements HasDynamicTitle {
         resetSteps();
         stepRow.setVisible(true);
         UI ui = UI.getCurrent();
+        boolean agenticMode = agentic.getValue();
         Background.run(this, () -> {
             // each stage reports itself as it starts; paint it at once (we are on the worker thread here). If the page
             // is closed meanwhile, painting is skipped and the answer is still saved to 📂 History.
-            RagAnswer answer = rag.ask(q, progress -> Background.access(ui, () -> showStep(progress)));
+            RagAnswer answer = rag.ask(q, agenticMode, progress -> Background.access(ui, () -> showStep(progress)));
             String id = history.saveTurn(sessionId, answer);
             return new Turn(answer, id);
         }, turn -> {

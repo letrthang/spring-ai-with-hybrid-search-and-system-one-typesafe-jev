@@ -8,6 +8,7 @@ import com.vaadin.flow.component.html.NativeDetails;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -21,16 +22,22 @@ import java.util.Locale;
  */
 public final class DataFlowDiagram {
 
-    private static final List<Actor> ACTORS = List.of(Actor.values());
-
     private DataFlowDiagram() {
     }
 
+    /** The five lifelines of every question, plus 💾 H2 when a hop used it (🛠 agentic mode). */
+    static List<Actor> actors(List<FlowHop> hops) {
+        boolean h2 = hops.stream().anyMatch(h -> h.from() == Actor.H2 || h.to() == Actor.H2);
+        return Arrays.stream(Actor.values()).filter(a -> a != Actor.H2 || h2).toList();
+    }
+
     public static Div of(List<FlowHop> hops) {
-        int n = ACTORS.size();
+        List<Actor> actors = actors(hops);
+        int n = actors.size();
         Div heads = new Div();
         heads.addClassName("rd-flow-heads");
-        for (Actor actor : ACTORS) {
+        heads.getStyle().set("grid-template-columns", "repeat(" + n + ", minmax(0, 1fr))");
+        for (Actor actor : actors) {
             Span name = new Span(actorName(actor));
             Div head = InfoHint.with(name, InfoHint.forActor(actor));
             head.addClassNames("rd-flow-actor", "justify-center");
@@ -45,10 +52,11 @@ public final class DataFlowDiagram {
             life.getElement().getStyle().set("left", pct((i + 0.5) / n));
             body.add(life);
         }
-        for (FlowHop hop : hops) body.add(row(hop, n));
+        for (FlowHop hop : hops) body.add(row(hop, actors));
 
         Div canvas = new Div(heads, body);
         canvas.addClassName("rd-flow-canvas");
+        canvas.getStyle().set("min-width", n * 128 + "px");   // 5 lifelines → 640 px, 6 (with 💾 H2) → 768 px
         Div legendRow = new Div(legend(hops), new InfoHint(Hint.DATA_FLOW));
         legendRow.addClassNames("flex", "items-center", "gap-1");
         Div diagram = new Div(canvas, legendRow);
@@ -57,9 +65,10 @@ public final class DataFlowDiagram {
     }
 
     /** One hop: the arrow (or a note on one lifeline) and, when opened, its summary. */
-    private static NativeDetails row(FlowHop hop, int n) {
-        int from = ACTORS.indexOf(hop.from());
-        int to = ACTORS.indexOf(hop.to());
+    private static NativeDetails row(FlowHop hop, List<Actor> actors) {
+        int n = actors.size();
+        int from = actors.indexOf(hop.from());
+        int to = actors.indexOf(hop.to());
         boolean self = from == to;
         int lo = Math.min(from, to);
         double left = (lo + 0.5) / n;

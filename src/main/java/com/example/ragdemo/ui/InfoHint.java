@@ -115,6 +115,7 @@ public class InfoHint extends Button {
             case WEAVIATE -> Hint.WEAVIATE;
             case SYSTEM1 -> Hint.SYSTEM1;
             case SYSTEM2 -> Hint.SYSTEM2;
+            case H2 -> Hint.DATABASE;
         };
     }
 

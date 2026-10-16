@@ -45,6 +45,8 @@ public final class AnswerBubble {
             text.addClassName("rd-markdown");
             bubble.add(text);
             if (a.nothingKept()) bubble.add(InfoHint.chip(Tr.t("answer.whyNoAnswer"), Hint.LAYA_SCORES));
+            Button agent = agentChip(a);
+            if (agent != null) bubble.add(agent);
             Button learning = learningChip(a);
             if (learning != null) bubble.add(learning);
         }
@@ -55,6 +57,15 @@ public final class AnswerBubble {
     }
 
     // ------------------------------------------------------------------ 🧠 self-learning
+
+    /** 🛠 Agent · rounds · tool calls, with the calls in its tooltip — null outside agentic mode. */
+    static Button agentChip(RagAnswer a) {
+        if (!a.agentic()) return null;
+        Button chip = InfoHint.chip(Tr.t("agent.chip", a.agent().rounds(), a.agent().toolCalls()), Hint.AGENTIC,
+                "rd-learn-chip", "rd-agent-chip");
+        chip.getElement().setAttribute("title", Tr.t("agent.calls") + "\n" + String.join("\n", a.agent().calls()));
+        return chip;
+    }
 
     /** ♻️ reused a learned answer · 🧠 learned ✅ · 🧠 not learned (why) — null when learning did not apply. */
     static Button learningChip(RagAnswer a) {

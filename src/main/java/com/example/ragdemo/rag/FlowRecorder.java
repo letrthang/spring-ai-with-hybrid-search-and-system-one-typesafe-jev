@@ -10,8 +10,11 @@ import java.util.List;
  */
 public class FlowRecorder {
 
-    /** The lifelines of the sequence diagram, left to right. Their names are i18n keys "actor.USER" etc. */
-    public enum Actor { USER, APP, WEAVIATE, SYSTEM1, SYSTEM2 }
+    /**
+     * The lifelines of the sequence diagram, left to right. Their names are i18n keys "actor.USER" etc. H2 (the app's
+     * database) only appears when a hop uses it — 🛠 the agent's recent_questions tool.
+     */
+    public enum Actor { USER, APP, WEAVIATE, SYSTEM1, SYSTEM2, H2 }
 
     public enum Kind { CALL, RETURN, NOTE }
 
