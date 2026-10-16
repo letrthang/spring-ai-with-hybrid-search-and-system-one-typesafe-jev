@@ -80,4 +80,14 @@ class SystemTwoClientHttpTest {
         assertThat(client.generate("system", "question").text()).isEqualTo("Hello [1]");
         assertThat(seen.getLast()).startsWith("Bearer key-two | ");
     }
+
+    @Test
+    void manyAnswersLeaveNoThreadsOrConnectionPoolsBehind() {
+        when(keys.system2Key()).thenReturn("key-one");
+        client.generate("system", "warm-up");   // one client pair: its OkHttp threads start once
+        int before = Thread.activeCount();
+        for (int i = 0; i < 30; i++) client.generate("system", "question " + i);
+        // before the fix every call built 2 new clients (2 pools + their threads); now nothing new per call
+        assertThat(Thread.activeCount() - before).isLessThanOrEqualTo(3);
+    }
 }
