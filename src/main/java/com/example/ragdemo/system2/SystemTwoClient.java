@@ -5,26 +5,34 @@ import org.slf4j.LoggerFactory;
 import com.example.ragdemo.keys.KeyStore;
 import com.example.ragdemo.rag.Http;
 import com.example.ragdemo.rag.SystemDownException;
+import com.openai.client.OpenAIClient;
+import com.openai.client.OpenAIClientAsync;
 import com.openai.errors.OpenAIServiceException;
+import io.micrometer.observation.ObservationRegistry;
+import jakarta.annotation.PreDestroy;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.openai.setup.OpenAiSetup;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static com.example.ragdemo.rag.ServiceStatus.Service.SYSTEM2;
 
 /**
  * System 2: the large language model that writes the answer, on OpenRouter (or any OpenAI-compatible endpoint).
  *
- * <p>For every call it reads the base URL, key and model list from {@link KeyStore} and builds a Spring AI
- * {@link OpenAiChatModel} — so a key saved a second ago is used at once. The models are tried <b>in order</b>: a free
+ * <p>For every call it reads the base URL, key and model list from {@link KeyStore}, so a key saved a second ago is
+ * used at once. The HTTP clients (OpenAI SDK on OkHttp, each with its own connection pool) are made <b>once per base
+ * URL + key</b> and reused; when the key or URL changes, the old clients are <b>closed first</b> and new ones opened —
+ * no connection pool is left behind. The model is a per-call option. The models are tried <b>in order</b>: a free
  * model that is busy (429), down (5xx) or slow (timeout) hands over to the next one. A wrong key (401/403) stops at
  * once — every model would fail the same way. If all fail, {@link SystemDownException}: System 2 is required.
  */
@@ -41,6 +49,20 @@ public class SystemTwoClient {
     }
 
     private final KeyStore keys;
+
+    /** The clients for the current base URL + key; replaced (old ones closed) when either changes. */
+    private Clients clients;
+
+    private record Clients(String identity, OpenAIClient sync, OpenAIClientAsync async, ChatModel model) {
+
+        void close() {
+            try {
+                sync.close();
+            } finally {
+                async.close();
+            }
+        }
+    }
 
     public SystemTwoClient(KeyStore keys) {
         this.keys = keys;
@@ -79,16 +101,42 @@ public class SystemTwoClient {
 
     /** One request to one model. Tests override this with a fake. */
     protected ChatResponse call(String baseUrl, String key, String model, String system, String user) {
-        ChatModel chatModel = OpenAiChatModel.builder()
-                .options(OpenAiChatOptions.builder()
-                        .baseUrl(baseUrl)
-                        .apiKey(key)
-                        .model(model)
-                        .maxRetries(0)                 // we move on to the next model ourselves
-                        .timeout(PER_MODEL_TIMEOUT)
-                        .build())
-                .build();
-        return ChatClient.create(chatModel).prompt().system(system).user(user).call().chatResponse();
+        return ChatClient.create(chatModel(baseUrl, key)).prompt().system(system).user(user)
+                .options(OpenAiChatOptions.builder().model(model))
+                .call().chatResponse();
+    }
+
+    /**
+     * The chat model for this base URL + key: reused while they stay the same. If they changed, the stale clients
+     * are closed <b>before</b> new ones are opened.
+     */
+    synchronized ChatModel chatModel(String baseUrl, String key) {
+        String identity = baseUrl + "\n" + key;
+        if (clients != null && clients.identity().equals(identity)) return clients.model();
+        close();   // stale: another key or URL
+        OpenAIClient sync = OpenAiSetup.setupSyncClient(baseUrl, key, null, null, null, null, false, false, null,
+                PER_MODEL_TIMEOUT, 0, null, Map.of(), ObservationRegistry.NOOP, null, List.of());   // 0 retries: we
+        OpenAIClientAsync async = OpenAiSetup.setupAsyncClient(baseUrl, key, null, null, null, null, false, false,  // move
+                null, PER_MODEL_TIMEOUT, 0, null, Map.of(), ObservationRegistry.NOOP, null, List.of());     // on ourselves
+        ChatModel model = OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(async)
+                .options(OpenAiChatOptions.builder().maxRetries(0).timeout(PER_MODEL_TIMEOUT).build()).build();
+        clients = new Clients(identity, sync, async, model);
+        log.info("🧠 opened OpenAI clients for {}", baseUrl);   // never the key
+        return model;
+    }
+
+    /** Closes the current clients (their connection pools and threads). Also on shutdown. */
+    @PreDestroy
+    synchronized void close() {
+        if (clients == null) return;
+        try {
+            clients.close();
+            log.info("🧠 closed the OpenAI clients of the previous key / URL");
+        } catch (RuntimeException e) {
+            log.debug("🧠 closing old clients: {}", e.getMessage());
+        } finally {
+            clients = null;
+        }
     }
 
     private static int statusOf(Throwable e) {
