@@ -239,6 +239,31 @@ text readable (AA contrast).
 
 ---
 
+## D2. 🧠 Self-learning
+
+### TC-33 · A verified answer is learned
+1. Ask **What does a RAS system do?** 2. Look at the chip under the answer, the 🧠 Learn step, 🔬 Trace and 🔀 Data flow.
+3. 🔎 Search Data → 🧠 Learned answers → 🔄.
+
+**Expected:** "🧠 Learned ✅ — ⚡ answers 0.9x · grounded 0.8x · injection 0.0x"; the 🧠 Learn chip ✅; Trace line
+"🧠 Learn — saved…"; Data flow hops "7. ⚡ verify the answer" → "8. 🧠 learn"; the question appears in Learned answers;
+the 🧭 diagram's save-back line shows the new count.
+
+### TC-34 · A similar question reuses it
+1. Ask **what does a RAS system do** (same meaning, other words / case). 2. Look at the chip, steps and Trace.
+
+**Expected:** "♻️ Reused a learned answer (distance 0.0x · ⚡ answers 0.9x)" (tooltip: the learned question); steps
+♻️ 🗄️ ✅ → ⚡ ✅ → 🧠 ➖ → 🧠 Learn ➖; Trace "♻️ Reused … System 2 not called"; the answer's sources are the original
+passages. In 🇻🇳 / 🇯🇵 the English answer is never reused (same language only).
+
+### TC-35 · What is not learned
+1. Ask a question the data cannot answer (e.g. `What is the capital of Peru?`).
+2. Ask while System 1 is busy (several questions within a minute on the public Laya route).
+
+**Expected:** step 1 nothing kept → no 🧠 chip (nothing to learn); an answer without [n] or saying it does not know →
+"🧠 Not learned — …"; step 2 "🧠 Not learned — System 1 was busy" while the answer itself is shown normally.
+(Automated: `AnswerVerifierTest`, `RagServiceTest` reuse / no-reuse / rejected, `WeaviateIT` save + closest.)
+
 ## E. Robustness
 
 ### TC-31 · No dead threads, no leaking connections
@@ -293,6 +318,9 @@ shutdown complete" and no "Database is already closed"; keys still work (environ
 | TC-30 | ✅ 2026-10-16 Local | |
 | TC-31 | ✅ 2026-10-16 Local | threads 83 → 121 under load → 67 idle; TCP 11 → 9 → 4 |
 | TC-32 | ✅ 2026-10-16 Render logs | 18:29:26 graceful shutdown, no "already closed" |
+| TC-33 | ⬜ after deploy (automated ✅: `RagServiceTest`, `WeaviateIT`) | |
+| TC-34 | ⬜ after deploy (automated ✅: `RagServiceTest` reuse, `WeaviateIT` closest + language) | |
+| TC-35 | ✅ automated (`AnswerVerifierTest`, `RagServiceTest`) | |
 
 **Automated tests** (`./mvnw test`, 2026-10-16): **64 tests, 0 failures** — incl. `WeaviateIT` (real Weaviate 1.40 in
 Docker, 1,500 passages), `DatabaseBrowserTest` (real H2), `LayaClientHttpTest` / `SystemTwoClientHttpTest` (fake HTTP

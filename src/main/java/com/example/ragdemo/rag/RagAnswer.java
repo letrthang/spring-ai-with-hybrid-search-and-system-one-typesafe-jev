@@ -6,9 +6,25 @@ import java.util.List;
  * Everything one question produced: the answer, where it came from (📚 Sources), the timings (🔬 Trace) and every hop
  * (🔀 Data flow). If a required service failed, {@code failure} says which one and why, {@code text} is null, and the
  * trace and flow show how far the question got. Readable texts are {@link Msg}s, translated by the UI.
+ *
+ * <p>Self-learning: {@code reuse} is set when a learned answer was reused (no System 2 call); {@code learning} says
+ * whether this new answer was verified by System 1 and saved (null when it was not tried, e.g. nothing kept).
  */
 public record RagAnswer(String question, String text, List<Source> sources, List<TraceLine> trace,
-                        List<FlowRecorder.FlowHop> flow, String model, long totalMs, Failure failure) {
+                        List<FlowRecorder.FlowHop> flow, String model, long totalMs, Failure failure,
+                        Reuse reuse, Learning learning) {
+
+    /** A learned answer was reused: for which earlier question, how close it is, and System 1's "answers" score. */
+    public record Reuse(String learnedQuestion, double distance, double answers) {
+    }
+
+    /** Was this answer learned? Why (not) — an i18n key — and the System 1 scores of the check. */
+    public record Learning(boolean saved, Msg reason, Double answers, Double grounded, Double injection) {
+    }
+
+    public boolean reused() {
+        return reuse != null;
+    }
 
     /** One passage found by the search, with how each step judged it. {@code citation} = its [n] in the prompt. */
     public record Source(String title, String source, Integer chunkNo, String text,

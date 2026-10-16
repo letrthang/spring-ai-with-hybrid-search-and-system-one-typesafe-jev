@@ -5,6 +5,7 @@ import com.example.ragdemo.chat.ChatMessage;
 import com.example.ragdemo.chat.ChatSession;
 import com.example.ragdemo.rag.RagAnswer;
 import com.example.ragdemo.rag.RagService;
+import com.example.ragdemo.weaviate.LearnedAnswers;
 import com.example.ragdemo.rag.ServiceStatus;
 import com.example.ragdemo.rag.ServiceStatus.Service;
 import com.example.ragdemo.system1.SystemOneHealth;
@@ -79,6 +80,7 @@ public class ChatView extends Div implements HasDynamicTitle {
     private final Map<RagService.Stage, Span> steps = new EnumMap<>(RagService.Stage.class);
     private final Div stepRow = new Div();
     private final SystemMap systemMap = new SystemMap();
+    private final LearnedAnswers learned;
     private final Div examples = new Div();
     private final Grid<ChatSession> sessions = new Grid<>();
     private final SplitMasterDetail historyLayout = new SplitMasterDetail(sessions);
@@ -90,7 +92,8 @@ public class ChatView extends Div implements HasDynamicTitle {
     private Registration pollRegistration;
 
     public ChatView(RagService rag, ChatHistoryService history, WeaviateHealth weaviate, SystemOneHealth systemOne,
-                    SystemTwoHealth systemTwo) {
+                    SystemTwoHealth systemTwo, LearnedAnswers learned) {
+        this.learned = learned;
         this.rag = rag;
         this.history = history;
         checks.put(Service.WEAVIATE, weaviate::check);
@@ -186,6 +189,7 @@ public class ChatView extends Div implements HasDynamicTitle {
                 case SEARCH -> Hint.WEAVIATE;
                 case SYSTEM1 -> Hint.SYSTEM1;
                 case SYSTEM2 -> Hint.SYSTEM2;
+                case LEARN -> Hint.LEARNING;
             }));
         }
         stepRow.add(new InfoHint(Hint.PROGRESS));
@@ -277,6 +281,7 @@ public class ChatView extends Div implements HasDynamicTitle {
         ui.setPollInterval(RECHECK_SECONDS * 1000);
         pollRegistration = ui.addPollListener(e -> checkAll());
         checkAll();
+        refreshLearned();
     }
 
     @Override
@@ -284,6 +289,17 @@ public class ChatView extends Div implements HasDynamicTitle {
         if (pollRegistration != null) pollRegistration.remove();   // a closed page never keeps polling
         event.getUI().setPollInterval(-1);
         super.onDetach(event);
+    }
+
+    /** How many answers are learned — shown on the 🧭 diagram's learn branch. */
+    private void refreshLearned() {
+        Background.run(this, () -> {
+            try {
+                return learned.count();
+            } catch (RuntimeException e) {
+                return -1L;   // Weaviate not ready yet: the diagram simply shows no number
+            }
+        }, systemMap::setLearned);
     }
 
     private void checkAll() {
@@ -363,6 +379,7 @@ public class ChatView extends Div implements HasDynamicTitle {
             applyEnabled();
             scrollToEnd();
             refreshHistory();
+            refreshLearned();
         }, error -> {
             busy = false;
             messages.add(AnswerBubble.question(Tr.t("common.unexpectedError", Background.message(error))));
@@ -381,6 +398,7 @@ public class ChatView extends Div implements HasDynamicTitle {
             case SEARCH -> Tr.t("step.SEARCH");
             case SYSTEM1 -> Tr.t("step.SYSTEM1");
             case SYSTEM2 -> Tr.t("step.SYSTEM2");
+            case LEARN -> Tr.t("step.LEARN");
         };
     }
 
@@ -406,10 +424,17 @@ public class ChatView extends Div implements HasDynamicTitle {
             case SYSTEM2 -> RagService.Stage.SYSTEM2;
         };
         boolean noSystemTwo = !answer.failed() && answer.model() == null;   // nothing was kept: System 2 not called
+        boolean reused = answer.reused();                                   // a learned answer: no System 2, no learning
         steps.forEach((stage, chip) -> {
+            String notNeeded = "➖ " + label(stage) + " — " + Tr.t("step.notNeeded");
             if (failed != null && stage == failed) setStep(chip, "rd-step-failed", "⛔ " + label(stage));
             else if (failed != null && stage.compareTo(failed) > 0) setStep(chip, "rd-step-waiting", "⬜ " + label(stage));
-            else if (noSystemTwo && stage == RagService.Stage.SYSTEM2) setStep(chip, "rd-step-waiting", "➖ " + label(stage) + " — " + Tr.t("step.notNeeded"));
+            else if (reused && stage == RagService.Stage.SEARCH) setStep(chip, "rd-step-done", "♻️ " + label(stage) + " — " + Tr.t("step.reused"));
+            else if ((reused || noSystemTwo) && stage.compareTo(RagService.Stage.SYSTEM2) >= 0) setStep(chip, "rd-step-waiting", notNeeded);
+            else if (stage == RagService.Stage.LEARN) setStep(chip, answer.learning() != null && answer.learning().saved()
+                    ? "rd-step-done" : "rd-step-waiting", answer.learning() != null && answer.learning().saved()
+                    ? "✅ " + label(stage) + " — " + Tr.t("step.learned")
+                    : "➖ " + label(stage) + " — " + Tr.t("step.notLearned"));
             else setStep(chip, "rd-step-done", "✅ " + label(stage));
         });
     }

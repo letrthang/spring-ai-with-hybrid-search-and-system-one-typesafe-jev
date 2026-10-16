@@ -28,7 +28,8 @@ public class SystemMap extends Component {
         Map<String, String> labels = new LinkedHashMap<>();
         for (String key : new String[] {"title", "lead", "question", "questionSub", "weaviate", "weaviateSub", "rrf",
                 "passages", "passagesSub", "system1", "system1Sub", "system2", "system2Sub", "answer", "answerSub",
-                "decision", "online", "waiting", "offline", "checking"}) {
+                "decision", "online", "waiting", "offline", "checking", "reuse", "reuseSub", "verify",
+                "learnedStore", "learnedCount"}) {
             labels.put(key, Tr.t("map." + key));
         }
         labels.put("whatIsThis", Tr.t("common.whatIsThis"));
@@ -46,6 +47,11 @@ public class SystemMap extends Component {
                 // a hint name the server does not know: nothing to open
             }
         }).addEventData("event.detail.hint");
+    }
+
+    /** How many answers are learned (shown on the learn branch); -1 = unknown. */
+    public void setLearned(long count) {
+        getElement().setProperty("learned", count);
     }
 
     /** A service's status changed: its pill colour, and the connector that leads into it. */

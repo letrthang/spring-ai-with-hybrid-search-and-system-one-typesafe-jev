@@ -9,8 +9,10 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+// every default set here, so a key in someone's local application.yml can never leak into (or break) this test
 @SpringBootTest(properties = {"spring.datasource.url=jdbc:h2:mem:keys;DB_CLOSE_DELAY=-1",
-        "ragdemo.defaults.weaviate.url=https://from-config.weaviate.cloud"})
+        "ragdemo.defaults.weaviate.url=https://from-config.weaviate.cloud",
+        "ragdemo.defaults.weaviate.key=", "ragdemo.defaults.system2.key="})
 class KeyStoreTest {
 
     @Autowired

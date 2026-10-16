@@ -4,13 +4,17 @@ import { customElement, property } from 'lit/decorators.js';
 /**
  * <rd-system-map> — "How it works": the RAG pipeline as one live diagram (💬 Chat page).
  *
+ *   ♻️ learned answers? (reuse if ⚡ agrees)
+ *         ↑
  *   💬 Question → 🗄️ Weaviate → (RRF) → 📄 Top passages → ⚡ System 1 → 🧠 System 2 → ✅ Answer
- *                                                            ╰┈┈→ 🚫 nothing kept: no answer
+ *                                                            ╰┈┈→ 🚫 nothing kept     ↓
+ *                                                                          ⚡ verify → 🧠 learned answers · N
  *
  * The server (SystemMap.java) sets three properties:
  *   labels  every text, already translated
  *   states  WEAVIATE / SYSTEM1 / SYSTEM2 → READY | WAITING | DOWN | UNKNOWN
  *   tips    the same keys → the full status sentence (tooltip)
+ *   learned how many answers are learned (-1 = unknown)
  * Clicking an ℹ️ fires `rd-hint` with { hint } so the server opens that lesson.
  *
  * Connectors: a dashed track that flows toward the arrow, plus a glowing particle; particles are staggered so the
@@ -35,6 +39,7 @@ export class RdSystemMap extends LitElement {
   @property({ type: Object }) labels: Record<string, string> = {};
   @property({ type: Object }) states: Record<string, State> = {};
   @property({ type: Object }) tips: Record<string, string> = {};
+  @property({ type: Number }) learned = -1;
 
   private t(key: string): string {
     return this.labels[key] ?? key;
@@ -98,6 +103,8 @@ export class RdSystemMap extends LitElement {
 
   render() {
     const [q, w, p, s1, s2, a] = this.stages();
+    const store = this.states['WEAVIATE'] ?? 'UNKNOWN';   // the learned answers live in Weaviate
+    const count = this.learned >= 0 ? ' · ' + this.t('learnedCount').replace('{0}', String(this.learned)) : '';
     return html`
       <section class="card">
         <header>
@@ -106,7 +113,14 @@ export class RdSystemMap extends LitElement {
         </header>
         <p class="lead">${this.t('lead')}</p>
         <div class="flow">
-          ${this.node(q)} ${this.link(q, w, 0)}
+          <div class="column">
+            <div class="branch top ${store}">
+              <button class="decision reuse" @click=${() => this.hint('LEARNING')}>♻️ ${this.t('reuse')} <b>ℹ</b></button>
+              <div class="rise"></div>
+            </div>
+            ${this.node(q)}
+          </div>
+          ${this.link(q, w, 0)}
           ${this.node(w)} ${this.link(w, p, 1, this.t('rrf'), 'RRF')}
           ${this.node(p)} ${this.link(p, s1, 2)}
           <div class="column">
@@ -118,7 +132,13 @@ export class RdSystemMap extends LitElement {
           </div>
           ${this.link(s1, s2, 3)}
           ${this.node(s2)} ${this.link(s2, a, 4)}
-          ${this.node(a)}
+          <div class="column last">
+            ${this.node(a)}
+            <div class="branch ${store}">
+              <div class="drop save"></div>
+              <button class="decision learned" @click=${() => this.hint('LEARNING')}>⚡ ${this.t('verify')} → 🧠 ${this.t('learnedStore')}${count} <b>ℹ</b></button>
+            </div>
+          </div>
         </div>
         <footer>
           <span><i class="READY"></i>${this.t('online')}</span>
@@ -143,6 +163,7 @@ export class RdSystemMap extends LitElement {
       --rd-ok-text: light-dark(#047857, #6ee7b7);
       --rd-warn-text: light-dark(#b45309, #fcd34d);
       --rd-bad-text: light-dark(#b91c1c, #fca5a5);
+      --rd-learn-text: light-dark(#3730a3, #c7d2fe);
       --rd-muted: light-dark(#475569, #cbd5e1);
       --rd-surface: light-dark(#ffffff, #151a24);
       --rd-line: light-dark(#e2e8f0, #2b3443);
@@ -164,7 +185,7 @@ export class RdSystemMap extends LitElement {
     h3 { margin: 0; font-size: 1rem; }
     .lead { margin: 4px 0 0; font-size: .85rem; color: var(--rd-muted); }
 
-    .flow { display: flex; align-items: center; padding: 34px 2px 74px; overflow-x: auto; }
+    .flow { display: flex; align-items: center; padding: 84px 2px 78px; overflow-x: auto; }
 
     /* ---- a stage */
     .node {
@@ -277,6 +298,35 @@ export class RdSystemMap extends LitElement {
     }
     .branch.DOWN .drop, .branch.UNKNOWN .drop { animation: none; }
 
+    /* self-learning: ♻️ the lookup above the question (line goes up), ⚡→🧠 the save-back below the answer */
+    .branch.top { top: auto; bottom: 100%; left: 0; transform: none; align-items: flex-start; }
+    .branch.top .rise { margin-left: 54px; }                       /* under the pill, over the question's centre */
+    .column.last .branch { left: auto; right: 0; transform: none; align-items: flex-end; }
+    .column.last .drop.save { margin-right: 54px; }               /* the answer is the rightmost node: keep inside */
+    .rise {
+      width: 3px; height: 24px; position: relative; margin-top: 8px;
+      background: repeating-linear-gradient(0deg, var(--rd-indigo) 0 5px, transparent 5px 9px);
+      background-size: 100% 9px;
+      animation: rise .7s linear infinite;
+    }
+    .rise::after {
+      content: ""; position: absolute; left: 50%; top: -6px; transform: translateX(-50%);
+      border-bottom: 8px solid var(--rd-indigo); border-left: 5px solid transparent; border-right: 5px solid transparent;
+    }
+    .drop.save { background: repeating-linear-gradient(180deg, var(--rd-emerald) 0 5px, transparent 5px 9px); background-size: 100% 9px; }
+    .drop.save::after { border-top-color: var(--rd-emerald); }
+    button.decision { font: inherit; font-size: .7rem; font-weight: 600; cursor: pointer; }
+    button.decision b { margin-left: 4px; font: italic 700 10px Georgia, serif; color: var(--rd-muted); }
+    .decision.reuse {
+      margin-top: 0; color: var(--rd-learn-text);
+      background: color-mix(in srgb, var(--rd-indigo) 10%, var(--rd-surface)); border: 1px dashed var(--rd-indigo);
+    }
+    .decision.learned {
+      color: var(--rd-ok-text);
+      background: color-mix(in srgb, var(--rd-emerald) 10%, var(--rd-surface)); border: 1px dashed var(--rd-emerald);
+    }
+    .branch.DOWN .rise, .branch.UNKNOWN .rise, .branch.DOWN .drop.save, .branch.UNKNOWN .drop.save { animation: none; }
+
     footer { display: flex; justify-content: flex-end; gap: 14px; font-size: .72rem; color: var(--rd-muted); }
     footer span { display: inline-flex; align-items: center; gap: 5px; }
     footer i.READY { background: var(--rd-emerald); }
@@ -285,6 +335,7 @@ export class RdSystemMap extends LitElement {
 
     @keyframes dash { to { background-position: 10px 0, 0 0; } }
     @keyframes drop { to { background-position: 0 9px; } }
+    @keyframes rise { to { background-position: 0 -9px; } }
     @keyframes dash-down { to { background-position: 0 10px, 0 0; } }
     @keyframes travel-down {
       0% { top: 0; opacity: 0; }
@@ -325,7 +376,9 @@ export class RdSystemMap extends LitElement {
       .node:hover { transform: none; }
       .column { display: flex; flex-direction: column; align-items: stretch; }
       .branch { position: static; transform: none; flex-direction: row; justify-content: center; margin-top: 8px; }
-      .drop { display: none; }
+      .drop, .rise { display: none; }
+      .branch.top { order: 2; }   /* stacked: the reuse note sits under the question, like the others */
+      .branch.top, .column.last .branch { align-items: center; }
       .decision { margin-top: 0; }
       .link, .link.labelled { flex: 0 0 30px; min-width: 0; height: auto; }
       .track {
@@ -346,7 +399,7 @@ export class RdSystemMap extends LitElement {
       .label { bottom: auto; top: 50%; left: calc(50% + 14px); transform: translateY(-50%); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .track, .drop, .pill.READY i { animation: none; }
+      .track, .drop, .rise, .pill.READY i { animation: none; }
       .particle { display: none; }
       .node { transition: none; }
     }

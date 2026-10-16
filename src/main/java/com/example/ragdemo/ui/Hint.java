@@ -35,6 +35,7 @@ public enum Hint {
     KEYS(null, "WEAVIATE", "SYSTEM2", "FAIL_CLOSED", "OWN_KEYS"),
     OWN_KEYS(null, "KEYS", "WEAVIATE", "SYSTEM2"),
     DATABASE("https://www.h2database.com/html/main.html", "HISTORY", "KEYS"),
+    LEARNING(null, "SYSTEM1", "SYSTEM2", "WEAVIATE", "INJECTION"),
     MODELS("https://openrouter.ai/models", "SYSTEM2", "TRACE");
 
     /** Where to read more (may be null). */

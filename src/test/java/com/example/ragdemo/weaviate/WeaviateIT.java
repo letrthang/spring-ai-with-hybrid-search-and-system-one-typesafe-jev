@@ -14,6 +14,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.time.Duration;
@@ -136,6 +137,23 @@ class WeaviateIT {
                 .allMatch(d -> d.getMetadata().containsKey("rrfScore"));
 
         assertThat(retriever.list(0, 5)).hasSize(5);
+
+        // 🧠 self-learning: save a verified answer, find it again by a similar question (same language only)
+        LearnedAnswers learned = new LearnedAnswers(connector);
+        learned.useDefinition(LearnedAnswerCollection.definition(
+                VectorConfig.text2vecModel2Vec(v -> v.sourceProperties("question"))));
+        assertThat(learned.closest("What does PCR do?")).isEmpty();   // no collection yet
+        learned.save("What does PCR do?", "PCR copies a piece of DNA [1].", "m:free",
+                List.of(new LearnedAnswers.LearnedSource("What PCR does", "en/02-pcr.md", 1, "PCR makes copies…", 1)),
+                0.9, 0.8, 0.01);
+        learned.save("What does PCR do?", "PCR copies a short piece of DNA [1].", "m:free", List.of(), 0.9, 0.8, 0.01);
+        assertThat(learned.count()).isEqualTo(1);   // the same question replaces, never duplicates
+        var near = learned.closest("what does PCR do").orElseThrow();
+        assertThat(near.answer()).isEqualTo("PCR copies a short piece of DNA [1].");
+        assertThat(near.distance()).isLessThan((float) com.example.ragdemo.rag.RagService.REUSE_DISTANCE);
+        assertThat(learned.closest("PCR dùng để làm gì?")).isEmpty();   // other language: never matched
+        learned.forgetAll();
+        assertThat(learned.count()).isZero();
     }
 
     @Test
