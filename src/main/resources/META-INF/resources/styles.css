@@ -1,0 +1,12 @@
+/* The app stylesheet. Loads after Aura (RagDemoApplication), so it can override.
+ * Tailwind owns layout and spacing (classes in the Java code); this file only holds what Tailwind can't express.
+ * Our own classes start with "rd-" so they never clash with a Tailwind utility of the same name.
+ * Colours come from Aura tokens, so light and dark both work. */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+.rd-muted {
+    color: var(--vaadin-text-color-secondary);
+}

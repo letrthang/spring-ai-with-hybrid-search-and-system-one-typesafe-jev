@@ -90,8 +90,11 @@ The app re-checks every 30 seconds and turns the chat back on by itself when all
 
 ## Run
 
-Coming with the project skeleton (issue [#4](https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/issues/4)):
+Needs **Java 25**. Maven comes with the wrapper; Node.js is downloaded by the Vaadin build.
 
 ```bash
-./mvnw spring-boot:run      # → http://localhost:8080, then open 🔑 Key Management
+./mvnw spring-boot:run                          # dev mode → http://localhost:8080, then open 🔑 Key Management
+./mvnw package && java -jar target/ragdemo-1.0-SNAPSHOT.jar   # production build, same URL
 ```
+
+The local H2 database file is `./data/ragdemo` (git-ignored). Delete the `data/` folder to forget the saved keys.
