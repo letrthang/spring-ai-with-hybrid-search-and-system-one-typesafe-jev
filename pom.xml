@@ -74,6 +74,13 @@
             <artifactId>spring-ai-rag</artifactId>
         </dependency>
 
+        <!-- System 2: Spring AI's OpenAI chat model, pointed at OpenRouter (OpenAI-compatible). Not the starter:
+             nothing is auto-configured from properties; the model is built per call from Key Management. -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai</artifactId>
+        </dependency>
+
         <!-- Weaviate Java client v6: BM25, nearText, collections. (Not spring-ai-weaviate-store: it has no BM25.) -->
         <dependency>
             <groupId>io.weaviate</groupId>
