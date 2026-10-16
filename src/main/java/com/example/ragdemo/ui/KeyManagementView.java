@@ -141,10 +141,18 @@ public class KeyManagementView extends Div implements HasDynamicTitle {
     private Component card(String title, String what, ServiceStatus.Service service, Supplier<ServiceStatus> check,
                            Runnable save, Runnable reset, String resetLabel, Component... fields) {
         StatusPill status = new StatusPill(service);
+        StatusBadge badge = new StatusBadge();   // ● online / starting / offline, top right of the card
         Runnable test = () -> {
             status.showChecking();
-            Background.run(status, check, status::show,
-                    e -> status.show(ServiceStatus.down(service, "status.checkFailed", Background.message(e))));
+            badge.showChecking();
+            Background.run(status, check, s -> {
+                status.show(s);
+                badge.show(s);
+            }, e -> {
+                ServiceStatus failed = ServiceStatus.down(service, "status.checkFailed", Background.message(e));
+                status.show(failed);
+                badge.show(failed);
+            });
         };
 
         Button saveButton = new Button(Tr.t("keys.save"), e -> {
@@ -168,11 +176,13 @@ public class KeyManagementView extends Div implements HasDynamicTitle {
         H3 heading = new H3(title);
         heading.addClassNames("m-0", "text-base");
 
-        Div card = new Div(InfoHint.with(heading, switch (service) {
+        Div head = new Div(InfoHint.with(heading, switch (service) {
             case WEAVIATE -> Hint.WEAVIATE;
             case SYSTEM1 -> Hint.SYSTEM1;
             case SYSTEM2 -> Hint.SYSTEM2;
-        }), description);
+        }), badge);
+        head.addClassNames("flex", "items-start", "justify-between", "gap-2");
+        Div card = new Div(head, description);
         card.add(fields);
         card.add(buttons, status);
         card.addClassNames("rd-card", "p-4", "flex", "flex-col", "gap-3");
