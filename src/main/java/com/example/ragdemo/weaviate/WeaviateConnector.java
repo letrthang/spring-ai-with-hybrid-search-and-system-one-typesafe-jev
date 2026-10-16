@@ -67,21 +67,24 @@ public class WeaviateConnector {
                 }
             }
             log.warn("🗄️ Weaviate {} failed: {}", what, Http.describe(failure));
-            if (used != null) reset(used);   // the next call opens a fresh client
+            // Only a broken connection is dropped. An error answer (e.g. "no such prop") means the connection works —
+            // closing it would break the calls running on it in parallel ("Connection pool shut down").
+            if (used != null && staleConnection(failure)) reset(used);
             throw new SystemDownException(WEAVIATE, "status.weaviate.failed", what, Http.describe(failure));
         }
     }
 
     /**
-     * A broken connection rather than an answer from Weaviate: an I/O error, a reset / closed connection, or gRPC
-     * UNAVAILABLE anywhere in the cause chain. (A 4xx/5xx answer is not retried: it would fail the same way.)
+     * A broken connection rather than an answer from Weaviate: an I/O error, a reset / closed connection, a client
+     * whose pool was shut down, or gRPC UNAVAILABLE anywhere in the cause chain. (A 4xx/5xx answer is not retried: it would fail the same way.)
      */
     static boolean staleConnection(Throwable e) {
         for (Throwable t = e; t != null; t = t.getCause()) {
             String message = t.getMessage() == null ? "" : t.getMessage();
             if (t instanceof java.io.IOException && !(t instanceof java.io.FileNotFoundException)) return true;
             if (message.startsWith("UNAVAILABLE") || message.contains("Connection reset")
-                    || message.contains("connection closed") || message.contains("GOAWAY")) {
+                    || message.contains("connection closed") || message.contains("GOAWAY")
+                    || message.contains("pool shut down")) {   // a parallel call closed this client meanwhile
                 return true;
             }
             if (t.getCause() == t) break;

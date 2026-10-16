@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,6 +57,30 @@ class WeaviateConnectorTest {
             throw new IllegalArgumentException("HTTP 422: invalid filter");
         })).isInstanceOf(SystemDownException.class);
         assertThat(tries).hasValue(1);
+    }
+
+    @Test
+    void anAnswerFromWeaviateKeepsTheClientForTheCallsRunningOnIt() throws Exception {
+        WeaviateConnector connector = connector();
+        assertThatThrownBy(() -> connector.call("count", c -> {
+            throw new IllegalStateException("UNKNOWN: no such prop with name 'kind' found in class 'DemoDoc'");
+        })).isInstanceOf(SystemDownException.class);
+        String result = connector.call("search", c -> "ok");
+        assertThat(result).isEqualTo("ok");
+        assertThat(opened).hasSize(1);   // the same client: not closed, not reopened
+        verify(opened.getFirst(), never()).close();
+    }
+
+    @Test
+    void aClientClosedMeanwhileIsRetriedOnAFreshOne() {
+        WeaviateConnector connector = connector();
+        AtomicInteger tries = new AtomicInteger();
+        String result = connector.call("count", c -> {
+            if (tries.incrementAndGet() == 1) throw new IllegalStateException("Connection pool shut down");
+            return "ok";
+        });
+        assertThat(result).isEqualTo("ok");
+        assertThat(opened).hasSize(2);
     }
 
     @Test
