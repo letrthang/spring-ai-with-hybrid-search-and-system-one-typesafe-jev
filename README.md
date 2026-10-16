@@ -13,7 +13,7 @@
   <img alt="Spring AI 2.0" src="https://img.shields.io/badge/Spring%20AI-2.0-6db33f">
   <img alt="Vaadin 25" src="https://img.shields.io/badge/Vaadin-25-00b4f0">
   <img alt="Weaviate: BM25 + vector" src="https://img.shields.io/badge/Weaviate-BM25%20%2B%20vector-2bb673">
-  <img alt="System 1: Laya" src="https://img.shields.io/badge/System%201-Laya-6f42c1">
+  <a href="https://huggingface.co/spaces/letrthang/aimtas-system-one-laya-slm"><img alt="System 1: Laya on Hugging Face" src="https://img.shields.io/badge/%F0%9F%A4%97%20System%201-Laya%20Space-ff9d00"></a>
   <img alt="System 2: OpenRouter free" src="https://img.shields.io/badge/System%202-OpenRouter%20free-c79a1e">
 </p>
 
@@ -22,10 +22,13 @@
   <a href="#how-it-works">How it works</a> ·
   <a href="#what-you-need-to-start-the-web-app">What you need</a> ·
   <a href="#5-minute-demo-script">5-minute demo</a> ·
-  <a href="#run">Run</a> ·
+  <a href="#run-locally">Run locally</a> ·
   <a href="#deploy-to-render">Deploy</a> ·
   <a href="architecture.md">Architecture</a>
 </p>
+
+> ⚡🤗 **System 1 runs on [Laya — a System One decision model on Hugging Face](https://huggingface.co/spaces/letrthang/aimtas-system-one-laya-slm)**
+> Public, free, no key: typed questions in, calibrated probabilities out. **[▶ Try it on the Space](https://huggingface.co/spaces/letrthang/aimtas-system-one-laya-slm)**
 
 ---
 
@@ -45,6 +48,14 @@ flowchart LR
 2. **System 1** (fast, small decision model): scores each passage (relevant? answers the question? prompt injection?),
    drops the bad ones and re-ranks the rest.
 3. **System 2** (big LLM): writes the answer from the passages System 1 kept, citing them `[1]`.
+
+| Step | What happens | Code |
+|---|---|---|
+| 1. Retrieve | Weaviate searches by **keywords (BM25)** and by **meaning (vector)** at the same time | `HybridRetriever` |
+| 2. Merge | **Reciprocal Rank Fusion**: `1/(60+rank)` from each list, added | `RrfFusion` |
+| 3. Filter | **System 1** (Laya) scores each passage: relevant? answers? prompt injection? | `SystemOneFilter`, `SystemOneReranker` |
+| 4. Generate | **System 2** (a free OpenRouter LLM) answers from the kept passages and cites them `[1]` | `SystemTwoClient` |
+| — | The whole flow, top to bottom, with a trace for 🔀 Data flow | `RagService` |
 
 The app has three pages: **💬 Chat** (answers with 📚 Sources, 🔬 Trace and a 🔀 Data flow dialog that shows every step
 with timings), **🔎 Search Data** (compare BM25 / Vector / Hybrid, double-click a row to see the stored record) and
@@ -69,6 +80,12 @@ Enter everything in the app's **🔑 Key Management** menu (System 2 models are 
 💲 paid below). Keys are saved in the app's local file DB and read on every API call. On Render the disk is not
 persistent, so after a restart or redeploy you enter them again.
 
+### Quick start
+
+1. Open 🔑 **Key Management**, enter the two keys (pick models from the dropdown — free ones first).
+2. 🔎 **Search Data** → 📥 **Load sample data** (biotech, physics and a fish-farm handbook).
+3. 💬 **Chat** → try *"What does PCR do?"* and open 📚 Sources and 🔀 Data flow.
+
 ### Get the two keys
 
 1. **OpenRouter:** sign up at [openrouter.ai](https://openrouter.ai/) → **Keys** → **Create key** (`sk-or-v1-…`). Free models still need a key; they have low per-minute and per-day limits.
@@ -92,6 +109,8 @@ physics basics (forces, electricity, heat and gases, light), a fish-farm handboo
 canteen menu and a planted prompt injection — for System 1 to drop.
 
 ## System 1: default or your own
+
+🤗 **[Laya on Hugging Face](https://huggingface.co/spaces/letrthang/aimtas-system-one-laya-slm)** — open the Space to try the model in your browser.
 
 **Default — nothing to do.** The app calls the public Laya Space:
 
@@ -136,7 +155,7 @@ The app re-checks every 30 seconds and turns the chat back on by itself when all
 
 Test cases and their latest results: [`docs/testing/test_cases.md`](docs/testing/test_cases.md).
 
-## Run
+## Run locally
 
 Needs **Java 25**. Maven comes with the wrapper; Node.js is downloaded by the Vaadin build.
 

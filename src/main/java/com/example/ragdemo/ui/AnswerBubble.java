@@ -37,11 +37,14 @@ public final class AnswerBubble {
             Paragraph failed = new Paragraph("⚠️ " + a.failure().service().label + " is not available: "
                     + a.failure().reason() + ". The question was not answered.");
             failed.addClassNames("m-0", "rd-warning", "p-2");
-            bubble.add(failed);
+            bubble.add(InfoHint.with(failed, Hint.FAIL_CLOSED));
         } else {
             Markdown text = new Markdown(a.text());
             text.addClassName("rd-markdown");
             bubble.add(text);
+            if (a.model() == null) {   // nothing was kept: explain why System 2 was not asked
+                bubble.add(InfoHint.chip("Why no answer?", Hint.LAYA_SCORES));
+            }
         }
         Div flowRow = new Div(dataFlowButton(a), new InfoHint(Hint.DATA_FLOW));
         flowRow.addClassNames("flex", "items-center", "gap-1");
@@ -73,18 +76,19 @@ public final class AnswerBubble {
         Span from = new Span("📄 " + s.source() + (s.chunkNo() == null ? "" : " · passage " + s.chunkNo()));
         from.addClassNames("rd-muted", "text-xs");
         Div chips = new Div(
-                chip("BM25 " + (s.bm25Rank() == null ? "—" : "#" + s.bm25Rank())),
-                chip("Vector " + (s.vectorRank() == null ? "—" : "#" + s.vectorRank())),
-                chip("RRF " + (s.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f", s.rrfScore()))));
+                InfoHint.chip("BM25 " + (s.bm25Rank() == null ? "—" : "#" + s.bm25Rank()), Hint.BM25),
+                InfoHint.chip("Vector " + (s.vectorRank() == null ? "—" : "#" + s.vectorRank()), Hint.VECTOR),
+                InfoHint.chip("RRF " + (s.rrfScore() == null ? "—" : String.format(Locale.ROOT, "%.4f", s.rrfScore())),
+                        Hint.RRF));
         if (s.relevant() != null) {
-            chips.add(chip(String.format(Locale.ROOT, "⚡ relevant %.2f · answers %.2f · injection %.2f",
-                    s.relevant(), s.answers(), s.injection())));
+            chips.add(InfoHint.chip(String.format(Locale.ROOT, "⚡ relevant %.2f · answers %.2f · injection %.2f",
+                    s.relevant(), s.answers(), s.injection()), Hint.LAYA_SCORES));
         }
         if (s.verdict() != null) {
-            Span verdict = chip((s.verdict().equals("kept") ? "✅ " : "🚫 ") + s.verdict()
-                    + (s.verdict().equals("kept") && !s.used() ? " (not in the best 3)" : ""));
-            verdict.addClassName(s.verdict().equals("kept") ? "rd-status-READY" : "rd-status-DOWN");
-            chips.add(verdict);
+            chips.add(InfoHint.chip((s.verdict().equals("kept") ? "✅ " : "🚫 ") + s.verdict()
+                            + (s.verdict().equals("kept") && !s.used() ? " (not in the best 3)" : ""),
+                    s.verdict().contains("injection") ? Hint.INJECTION : Hint.LAYA_SCORES,
+                    s.verdict().equals("kept") ? "rd-status-READY" : "rd-status-DOWN"));
         }
         chips.addClassNames("flex", "flex-wrap", "gap-1");
         Paragraph text = new Paragraph(s.text());
@@ -102,10 +106,12 @@ public final class AnswerBubble {
         lines.addClassNames("flex", "flex-col", "gap-1", "text-sm");
         for (RagAnswer.TraceLine line : a.trace()) {
             Span step = new Span(line.step());
-            step.addClassNames("font-semibold", "shrink-0", "w-32");
+            step.addClassNames("font-semibold");
+            Div stepCell = InfoHint.with(step, InfoHint.forStep(line.step()));
+            stepCell.addClassNames("shrink-0", "w-36");
             Span detail = new Span(line.detail());
             detail.addClassNames("min-w-0", "break-words");
-            Div row = new Div(step, detail);
+            Div row = new Div(stepCell, detail);
             row.addClassNames("flex", "gap-2");
             lines.add(row);
         }
@@ -129,11 +135,6 @@ public final class AnswerBubble {
         return q.length() <= 60 ? q : q.substring(0, 59) + "…";
     }
 
-    private static Span chip(String text) {
-        Span chip = new Span(text);
-        chip.addClassNames("rd-status", "rd-status-UNKNOWN", "text-xs");
-        return chip;
-    }
 
     private static Span muted(String text) {
         Span span = new Span(text);
