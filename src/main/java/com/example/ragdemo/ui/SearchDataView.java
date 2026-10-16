@@ -226,7 +226,8 @@ public class SearchDataView extends Div implements HasDynamicTitle {
 
     private void checkHealth() {
         pill.showChecking();
-        Background.run(this, health::check, this::showHealth);
+        Background.run(this, health::check, this::showHealth,
+                e -> showHealth(ServiceStatus.down(ServiceStatus.Service.WEAVIATE, "status.checkFailed", Background.message(e))));
     }
 
     private void showHealth(ServiceStatus newStatus) {
@@ -326,7 +327,7 @@ public class SearchDataView extends Div implements HasDynamicTitle {
         if (e instanceof SystemDownException down) {
             showHealth(down.toStatus());
         } else {
-            Notification.show("⚠️ " + e.getMessage()).addThemeVariants(NotificationVariant.ERROR);
+            Notification.show(Tr.t("common.unexpectedError", Background.message(e))).addThemeVariants(NotificationVariant.ERROR);
         }
     }
 

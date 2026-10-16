@@ -140,7 +140,8 @@ public class KeyManagementView extends Div implements HasDynamicTitle {
         StatusPill status = new StatusPill(service);
         Runnable test = () -> {
             status.showChecking();
-            Background.run(status, check, status::show);
+            Background.run(status, check, status::show,
+                    e -> status.show(ServiceStatus.down(service, "status.checkFailed", Background.message(e))));
         };
 
         Button saveButton = new Button(Tr.t("keys.save"), e -> {

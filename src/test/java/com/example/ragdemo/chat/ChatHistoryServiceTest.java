@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,5 +56,13 @@ class ChatHistoryServiceTest {
     @Test
     void longQuestionsGiveAShortTitle() {
         assertThat(ChatHistoryService.title("word ".repeat(40))).hasSize(ChatHistoryService.TITLE_LENGTH).endsWith("…");
+    }
+
+    @Test
+    void anAnswerSavedInAnOlderShapeIsShownAsTextNotAnError() {
+        ChatMessage old = new ChatMessage("s", 2, ChatMessage.Sender.AI, ChatMessage.Status.OK, "old answer",
+                "{\"trace\":[{\"step\":\"x\",\"detail\":\"a plain string, before Msg\"}],\"sources\":7}",
+                Instant.now());
+        assertThat(ChatHistoryService.answerOf(old)).isNull();
     }
 }

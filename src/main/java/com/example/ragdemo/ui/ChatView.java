@@ -285,7 +285,8 @@ public class ChatView extends Div implements HasDynamicTitle {
 
     private void checkAll() {
         for (Service s : Service.values()) {
-            Background.run(this, checks.get(s), this::show);   // the three checks run at the same time
+            Background.run(this, checks.get(s), this::show,   // the three checks run at the same time
+                    e -> show(ServiceStatus.down(s, "status.checkFailed", Background.message(e))));
         }
     }
 
@@ -337,8 +338,9 @@ public class ChatView extends Div implements HasDynamicTitle {
         stepRow.setVisible(true);
         UI ui = UI.getCurrent();
         Background.run(this, () -> {
-            // each stage reports itself as it starts; paint it at once (we are on the worker thread here)
-            RagAnswer answer = rag.ask(q, progress -> ui.access(() -> showStep(progress)));
+            // each stage reports itself as it starts; paint it at once (we are on the worker thread here). If the page
+            // is closed meanwhile, painting is skipped and the answer is still saved to 📂 History.
+            RagAnswer answer = rag.ask(q, progress -> Background.access(ui, () -> showStep(progress)));
             String id = history.saveTurn(sessionId, answer);
             return new Turn(answer, id);
         }, turn -> {
@@ -358,7 +360,8 @@ public class ChatView extends Div implements HasDynamicTitle {
             refreshHistory();
         }, error -> {
             busy = false;
-            messages.add(AnswerBubble.question(Tr.t("common.unexpectedError", error.getMessage())));
+            messages.add(AnswerBubble.question(Tr.t("common.unexpectedError", Background.message(error))));
+            stepRow.setVisible(false);
             applyEnabled();
         });
     }

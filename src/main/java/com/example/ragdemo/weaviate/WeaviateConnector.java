@@ -41,15 +41,25 @@ public class WeaviateConnector {
     }
 
     public <T> T call(String what, Work<T> work) {
+        WeaviateClient used = null;
         try {
-            return work.apply(client());
+            used = client();
+            return work.apply(used);
         } catch (SystemDownException e) {
             throw e;
         } catch (Exception e) {
             log.warn("🗄️ Weaviate {} failed: {}", what, Http.describe(e));
-            close();   // the next call opens a fresh client
+            if (used != null) reset(used);   // the next call opens a fresh client
             throw new SystemDownException(WEAVIATE, "status.weaviate.failed", what, Http.describe(e));
         }
+    }
+
+    /**
+     * Drops {@code failed} only if it is still the current client. Calls running in parallel (BM25 + vector, the
+     * health checks) may already use a newer client — closing that one would break them too.
+     */
+    private synchronized void reset(WeaviateClient failed) {
+        if (client == failed) close();
     }
 
     private synchronized WeaviateClient client() throws Exception {

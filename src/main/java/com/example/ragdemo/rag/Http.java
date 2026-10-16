@@ -27,7 +27,7 @@ public final class Http {
     }
 
     /** A short, key-free description of a failed call, for a status pill or a trace hop. */
-    public static String describe(Exception e) {
+    public static String describe(Throwable e) {
         if (e instanceof java.net.http.HttpTimeoutException) return "timeout";
         if (e instanceof java.net.ConnectException) return "cannot connect";
         if (e instanceof IllegalArgumentException) return "invalid URL";

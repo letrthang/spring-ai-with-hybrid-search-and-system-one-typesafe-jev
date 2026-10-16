@@ -89,6 +89,19 @@ class SystemOneTest {
                 .isInstanceOf(SystemDownException.class).hasMessageContaining("status.system1.waking");
     }
 
+    @Test
+    void anUnexpectedLayaFailureAlsoFailsClosed_asSystemOneDown() {
+        LayaClient broken = new LayaClient(null) {
+            @Override
+            public Scores score(String question, String passage) {
+                throw new NullPointerException();   // a bug, not a "service down"
+            }
+        };
+        assertThatThrownBy(() -> new SystemOneFilter(broken).process(new Query("q"), List.of(doc("a"))))
+                .isInstanceOfSatisfying(SystemDownException.class, e -> assertThat(e.service())
+                        .isEqualTo(com.example.ragdemo.rag.ServiceStatus.Service.SYSTEM1));
+    }
+
     // ------------------------------------------------------------------ SystemOneReranker
 
     @Test
