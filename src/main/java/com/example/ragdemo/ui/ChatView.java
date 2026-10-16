@@ -61,9 +61,9 @@ public class ChatView extends Div {
     static final int RECHECK_SECONDS = 30;
     static final int MAX_QUESTION = 2000;
     static final List<String> EXAMPLES = List.of(
-            "How do I reset aerator AER-01 after error E-17?",
-            "My fish are gasping at the surface in the early morning. What should I do?",
-            "What is on the canteen menu on Friday?");
+            "What does the NGG PAM sequence do for Cas9?",
+            "Why does warm water hold less oxygen than cold water?",
+            "What does Newton's second law say?");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
             .withZone(ZoneId.systemDefault());
 
@@ -143,7 +143,7 @@ public class ChatView extends Div {
     private Div questionCard() {
         H3 title = new H3("💬 Your question");
         title.addClassNames("m-0", "text-base");
-        question.setPlaceholder("Ask about the farm, e.g. \"" + EXAMPLES.getFirst() + "\"");
+        question.setPlaceholder("Ask about biotech or physics, e.g. \"" + EXAMPLES.getFirst() + "\"");
         question.setMaxLength(MAX_QUESTION);
         question.setValueChangeMode(ValueChangeMode.EAGER);
         question.addValueChangeListener(e -> {
@@ -244,9 +244,7 @@ public class ChatView extends Div {
         return historyCard;
     }
 
-    private Div sessionCard(ChatSession s) {
-        H3 title = new H3(s.getTitle());
-        title.addClassNames("m-0", "text-base");
+    private DetailCard sessionCard(ChatSession s) {
         Span when = new Span("🕒 " + TIME.format(s.getStartedAt()) + " · " + s.getMessageCount() + " messages");
         when.addClassNames("rd-muted", "text-sm");
         Div questions = new Div();
@@ -259,9 +257,7 @@ public class ChatView extends Div {
         continue_.addThemeVariants(ButtonVariant.PRIMARY);
         Div buttons = new Div(continue_, open);
         buttons.addClassNames("flex", "flex-wrap", "gap-2");
-        Div card = new Div(title, when, questions, buttons);
-        card.addClassNames("p-4", "flex", "flex-col", "gap-3");
-        return card;
+        return new DetailCard("🗨️ " + s.getTitle(), sessions::deselectAll, when, questions, buttons);
     }
 
     // ================================================================== service status (fail closed)

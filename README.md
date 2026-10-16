@@ -1,5 +1,7 @@
 # Spring AI with Hybrid Search and System One Typesafe JEV
 
+[![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue)](LICENSE)
+
 A small **demo / training** app. Its one purpose: show **how RAG works** with **System 1**, **System 2** and the **Weaviate** vector DB, using Spring AI and Vaadin.
 
 ```mermaid
@@ -92,13 +94,14 @@ The app re-checks every 30 seconds and turns the chat back on by itself when all
 ## 5-minute demo script
 
 1. **🔑 Key Management** — show that only two keys are needed; 🧪 Test turns the pills 🟢.
-2. **🔎 Search Data** — 📥 Load sample data. Search **"reset AER-01"** in BM25, then Vector, then Hybrid: watch the
-   ranks change and RRF merge them.
-3. **💬 Chat** — ask **"How do I reset aerator AER-01 after error E-17?"**.
+2. **🔎 Search Data** — 📥 Load sample data. Search **"Newton's second law"** and then **"why does warm water hold less oxygen"**
+   in BM25, Vector and Hybrid: watch the ranks change and RRF merge them.
+3. **💬 Chat** — ask **"What does the NGG PAM sequence do for Cas9?"**.
    - Open **📚 Sources**: which passages Weaviate found, Laya's three scores, ✅ kept / 🚫 dropped.
    - Open **🔀 Data flow**: the whole trip — BM25 + vector, RRF, one Laya call per passage, the prompt, System 2.
-4. Ask **"What is on the canteen menu on Friday?"** — the canteen passage is found, but is it about the farm? Watch
-   what System 1 decides.
+4. Ask a basic physics question: **"What does Newton's second law say?"** — the answer is *F = m · a* with [1].
+   📚 Sources shows Newton's laws ✅ kept, while the other physics passages the search also found (gases, light)
+   are 🚫 dropped as not relevant: System 1 at work.
 5. Show **⚠️ fail closed**: clear the OpenRouter key → the chat is disabled with a banner, nothing is sent.
 
 Test cases and their latest results: [`docs/testing/test_cases.md`](docs/testing/test_cases.md).
@@ -130,4 +133,8 @@ Good to know about the free plan:
   **forgets the keys and the chat history**: enter the keys again. (The passages stay in Weaviate.)
 - **Sleeps after 15 minutes idle** — the first request wakes it in about a minute.
 - Health check: `/actuator/health`.
+
+## Licence
+
+[Apache-2.0](LICENSE) — free to use, change and share, also commercially; keep the licence and copyright notices.
 

@@ -1,5 +1,6 @@
 package com.example.ragdemo.weaviate;
 
+import io.weaviate.client6.v1.api.collections.CollectionConfig;
 import io.weaviate.client6.v1.api.collections.WeaviateObject;
 import io.weaviate.client6.v1.api.collections.data.InsertManyResponse;
 import org.springframework.core.io.Resource;
@@ -23,8 +24,9 @@ import java.util.UUID;
  * each passage about one topic. (Spring AI's {@code TokenTextSplitter} splits by token count instead; for hand-written
  * docs with headings, the headings are the better boundary.)
  *
- * <p>Each passage gets a fixed id made from its file and section number, so loading twice <b>replaces</b> the
- * passages instead of duplicating them.
+ * <p>Loading <b>starts fresh</b>: the collection is dropped and created again, so the collection always holds exactly
+ * the current sample data (no passages left over from an older version). Each passage also gets a fixed id made from
+ * its file and section number.
  */
 @Component
 public class SampleDataLoader {
@@ -52,11 +54,17 @@ public class SampleDataLoader {
         this.weaviate = weaviate;
     }
 
-    /** Creates the collection if needed and inserts every sample passage. Returns the number of passages. */
+    /** Drops and re-creates the collection, then inserts every sample passage. Returns the number of passages. */
     public int load() {
+        return load(DemoDocCollection.definition());
+    }
+
+    /** Tests pass a collection definition with a local vectorizer. */
+    int load(CollectionConfig definition) {
         List<Chunk> chunks = readSampleData();
         return weaviate.call("load sample data", client -> {
-            DemoDocCollection.ensure(client);
+            if (client.collections.exists(DemoDocCollection.NAME)) client.collections.delete(DemoDocCollection.NAME);
+            DemoDocCollection.ensure(client, definition);
             List<WeaviateObject<Map<String, Object>>> objects = new ArrayList<>();
             for (Chunk chunk : chunks) {
                 objects.add(WeaviateObject.of(o -> o.uuid(chunk.id()).properties(chunk.properties())));

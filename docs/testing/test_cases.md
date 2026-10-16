@@ -4,10 +4,15 @@ How to read this file: every case has **steps**, the **expected** result, and th
 its date and where it ran. ✅ passed · 🟠 partly / with a stand-in · ❌ failed · ⬜ not run yet.
 
 **Environments**
-- **Local-Docker** — the app in Docker + Weaviate 1.40.0 in Docker with a small local vectorizer (model2vec
-  potion-8M, standing in for Weaviate Cloud's embeddings) + the **real public Laya** route. System 2 is a local
-  OpenAI-compatible stand-in when no OpenRouter key is available.
-- **Render** — <https://spring-ai-with-hybrid-search-and-system.onrender.com>, Weaviate Cloud, OpenRouter free models.
+- **Local-Real** — the app on `localhost:8080` with the owner's test keys: **Weaviate Cloud** (1.39.12, `text2vec-weaviate`,
+  HFresh index), **OpenRouter** free models, the **real public Laya** route.
+- **Local-Docker** — the app + Weaviate 1.40.0 in Docker with a small local vectorizer (model2vec potion-8M, standing in
+  for Weaviate Cloud's embeddings) + real Laya; System 2 a local stand-in. Used before the keys were available.
+- **Render** — <https://spring-ai-with-hybrid-search-and-system.onrender.com>.
+
+**Sample data** (46 passages): biotech basics (DNA, PCR, CRISPR, fermentation), physics basics (mechanics, electricity,
+heat and gases, light), the fish-farm handbook, "how this demo works", and office notes with an off-topic canteen menu
+and a planted prompt injection.
 
 ## Step 0 — start
 
@@ -20,38 +25,44 @@ its date and where it ran. ✅ passed · 🟠 partly / with a stand-in · ❌ fa
 | ID | Case | Steps | Expected |
 |---|---|---|---|
 | TC-01 | No keys → chat disabled | Fresh start, open 💬 Chat | Pills: 🔴 Weaviate "no URL or API key", 🟢 System 1 "Laya is ready", 🔴 System 2 "no API key"; ⚠️ banner with 🔑 link; question box + Ask disabled |
-| TC-02 | Keys are masked and kept | Save a key; reload the page; restart the app | Field empty, placeholder `••••abcd`; after a **local** restart the key is still there; on **Render** a restart forgets it |
-| TC-03 | Wrong key | Save a wrong OpenRouter key / Weaviate key | 🔴 "invalid API key — check 🔑 Key Management" |
-| TC-04 | Load sample data | 🔎 Search Data with an empty collection → 📥 Load | 🟡 "collection is empty" → "22 passages loaded" → 🟢 "22 passages"; loading again does not duplicate |
-| TC-05 | Hybrid search, keyword question | Search "reset AER-01", mode Hybrid | Aerator manual passages first, with BM25 rank, vector rank and RRF score |
-| TC-06 | Compare modes, meaning question | Search "my fish seem to be suffocating" in BM25, Vector, Hybrid | BM25 has few useful hits; Vector puts "Signs of low oxygen" high; Hybrid merges both |
-| TC-07 | Ask — keyword question | 💬 "How do I reset aerator AER-01 after error E-17?" | Answer cites [n]; the "Reset after a trip (error E-17)" passage is ✅ kept and cited |
-| TC-08 | System 1 drops junk | Same question; open 📚 Sources | Off-topic passages 🚫 "dropped: not relevant"; if the injected email note is found it is 🚫 "dropped: prompt injection" and never sent to System 2 |
-| TC-09 | Nothing kept | 💬 "What is the capital of France?" | "System 1 found no passage that can answer this question…"; 🔬 Trace "System 2 — not called" |
-| TC-10 | Data flow | Open 🔀 Data flow under an answer | Dialog (⛶ ✕): question → BM25 → nearText → lists → RRF → one call + verdict per passage → rerank → augment → System 2 → answer, with timings |
-| TC-11 | History | Ask twice; ＋ New chat; double-click the first row in 📂 History | Grid shows both conversations with counts; dialog shows the saved answer with Sources / Trace / Data flow |
-| TC-12 | A service fails during a question | Stop System 2 (wrong key) and ask | Answer bubble ⚠️ "🧠 System 2 is not available…", pill turns 🔴, chat disabled; saved as FAILED in history |
-| TC-13 | Phone + dark | 390 px wide, dark mode, all 3 menus | No sideways scroll; cards stack; detail cards open as overlays; text readable |
+| TC-02 | Keys are masked and kept | Save a key; reload; restart the app | Field empty, placeholder `••••abcd`; kept after a **local** restart; **Render** forgets it on restart |
+| TC-03 | Wrong key | Save a wrong OpenRouter / Weaviate key | 🔴 "invalid API key — check 🔑 Key Management" |
+| TC-04 | Load sample data | 🔎 Search Data → 📥 Load | Collection dropped and re-created (HFresh), "46 passages loaded", 🟢 "46 passages" |
+| TC-05 | Columns per mode | Empty query, then a query in BM25 / Vector / Hybrid | List: #, Title, Source · BM25: + BM25 rank · Vector: + vector rank · Hybrid: + both + RRF |
+| TC-06 | Meaning vs keyword | "why does warm water hold less oxygen" in the 3 modes | The Henry's-law passage first; Hybrid merges both lists |
+| TC-07 | Record details | Double-click a row | 📍 cluster, collection, object UUID + how it is made, REST address · 🧱 fields and indexes · 🧮 vector (1024 numbers) · { } raw JSON |
+| TC-08 | Ask — biotech | 💬 "What does the NGG PAM sequence do for Cas9?" | Answer cites [n]; the CRISPR passage ✅ kept |
+| TC-09 | Ask — physics, System 1 at work | 💬 "What does Newton's second law say?" | "F = m · a [1]"; Newton's laws ✅ kept, other physics passages 🚫 dropped |
+| TC-10 | Nothing kept | A question Laya finds no passage for | "System 1 found no passage…", 🧠 step "➖ not needed" |
+| TC-11 | Live progress | Ask anything | Chips move ⏳ 🗄️ → ⚡ → 🧠, then all ✅ |
+| TC-12 | Data flow | 🔀 Data flow under an answer | Dialog with every hop and its timing |
+| TC-13 | Model picker | 🔑 Key Management → System 2 dropdown | Free group first, paid group below; name + id + details footer; search; ↑ ↓ ✕; 💾 keeps the order |
+| TC-14 | Detail card ✕ | Click a row in Search Data / History | Framed card; ✕ closes it and clears the selection |
+| TC-15 | A service fails | Wrong System 2 key, then ask | ⚠️ in the answer, pill 🔴, chat disabled, ⛔ on the 🧠 step |
+| TC-16 | Phone + dark | 390 px, dark, all 3 menus | No sideways scroll; cards stack; overlays for detail cards |
 
 ## Results
 
-| ID | 2026-10-16 · Local-Docker | Render |
+| ID | 2026-10-16 · Local-Real (owner's test keys) | Render |
 |---|---|---|
-| TC-01 | ✅ banner + disabled Ask exactly as expected | ✅ same on the Render URL (no keys entered) |
-| TC-02 | ✅ `••••9999` after reload and after a jar restart; never in the log | ⬜ needs real keys |
-| TC-03 | ✅ OpenRouter fake key → 🔴 invalid (real 401 from OpenRouter); Weaviate wrong key → invalid (WeaviateIT) | ⬜ |
-| TC-04 | ✅ 🟡 empty → "22 passages loaded" → 🟢; second load = 22 | ⬜ needs Weaviate Cloud key |
-| TC-05 | ✅ #1 "Aerator AER-01 to AER-06" (BM25 #1, vector #1), #2 "Reset after a trip (error E-17)" (BM25 #2, vector #2) | ⬜ |
-| TC-06 | 🟠 BM25 and vector gave the **same** top 3 ("Daily ration", "Ammonia", "Signs of low oxygen") — confirmed directly in Weaviate: the local stand-in vectorizer is a small static word-embedding model that ranks almost like keywords. Re-check on Weaviate Cloud | ⬜ |
-| TC-07 | 🟠 pipeline ✅ with the System 2 stand-in: answer cited [1] "Reset after a trip (error E-17)" | ⬜ needs OpenRouter key |
-| TC-08 | ✅ real Laya: canteen menu dropped "not relevant" (0.12 / 0.20); injected note dropped "prompt injection" (injection 0.99); E-17 passage kept (0.93 / 0.94) | ⬜ |
-| TC-09 | ✅ covered by `RagServiceTest.nothingKept_systemTwoIsNotCalled` | ⬜ |
-| TC-10 | ✅ every hop drawn with timings (4 Laya calls of 2.1–5.7 s, run in parallel) | ⬜ |
-| TC-11 | ✅ "Conversations: 1", double-click dialog shows the saved answer + sections | ⬜ |
-| TC-12 | ✅ covered by `RagServiceTest` (Weaviate down / System 1 down) and `ChatHistoryServiceTest` (FAILED message) | ⬜ |
-| TC-13 | ✅ all three menus at 390 px dark, `scrollWidth = clientWidth = 390`; console 0 errors | ⬜ |
+| TC-01 | ✅ (Local-Docker + Render, before keys) | ✅ |
+| TC-02 | ✅ `••••4c73` / `••••MjAw`; kept after restart; never in the log | see below |
+| TC-03 | ✅ fake OpenRouter key → real 401 → "invalid API key" | |
+| TC-04 | ✅ "46 passages loaded" on Weaviate Cloud (first try failed with HTTP 422 "hnsw is not allowed" → fixed by HFresh, PR #27) | |
+| TC-05 | ✅ list `#, Title, Source` · BM25 `+BM25` · Vector `+Vector` · Hybrid `+BM25, Vector, RRF` | |
+| TC-06 | ✅ all modes: #1 "Gases dissolving in liquids (Henry's law)" (BM25 7.88, vector 0.437); Hybrid #2 "Dissolved oxygen (DO)" | |
+| TC-07 | ✅ UUID `829abd87-…` = nameUUIDFromBytes("05-mechanics.md#1"); 1024-number vector; raw JSON | |
+| TC-08 | ✅ "The NGG PAM sequence is required for Cas9 to recognize and cut the target DNA; without the NGG PAM next to the target, Cas9 does not cut. [1]" — 1 used of 4. Note: Laya flagged "How this demo works — What is RAG" as *prompt injection* (a false positive: the passage talks about prompts) | |
+| TC-09 | ✅ "Newton's second law states that force equals mass times acceleration (F = m·a). [1]" — 1 used of 4; gases, Beer–Lambert, ideal gas 🚫 not relevant | |
+| TC-10 | ✅ "How much current does a 2,000 W kettle draw…" → 0 kept → System 2 "not needed" (Laya judged the power passage not relevant) | |
+| TC-11 | ✅ +0.2 s 🗄️ → +0.6 s ⚡ → +5.9 s 🧠 → +11.5 s ✅ | |
+| TC-12 | ✅ every hop with timings | |
+| TC-13 | ✅ "Search 465 models (18 free)"; free first; "gpt-4o-mini" → 💲 $0.15 in / $0.60 out per 1M | |
+| TC-14 | ✅ ✕ closes and deselects | |
+| TC-15 | ✅ unit tests (`RagServiceTest`, `ChatHistoryServiceTest`) + Local-Docker banner check | |
+| TC-16 | ✅ (Local-Docker run) | |
 
-**Automated tests** (`./mvnw test`, 2026-10-16): 32 tests, 0 failures — including `WeaviateIT` (real Weaviate in
+**Automated tests** (`./mvnw test`, 2026-10-16): 34 tests, 0 failures — including `WeaviateIT` (real Weaviate in
 Docker).
 
-**Summary:** Local-Docker 11 ✅ · 2 🟠 · 0 ❌ — Render 1 ✅ · 12 ⬜ (waiting for the Weaviate and OpenRouter keys).
+**Summary:** Local-Real 16 ✅. Render: run after deploy (see the PR).
