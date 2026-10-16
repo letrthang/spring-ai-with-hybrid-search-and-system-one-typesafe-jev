@@ -50,7 +50,7 @@ public class KeyManagementView extends Div {
 
         Div grid = new Div(weaviateCard(weaviate), systemTwoCard(systemTwo), systemOneCard(systemOne));
         grid.addClassNames("grid", "grid-cols-1", "lg:grid-cols-3", "gap-4");
-        add(new H2("🔑 Key Management"), intro, grid);
+        add(InfoHint.with(new H2("🔑 Key Management"), Hint.KEYS), intro, grid);
     }
 
     // ------------------------------------------------------------------ the three cards
@@ -165,7 +165,11 @@ public class KeyManagementView extends Div {
         H3 heading = new H3(title);
         heading.addClassNames("m-0", "text-base");
 
-        Div card = new Div(heading, description);
+        Div card = new Div(InfoHint.with(heading, switch (service) {
+            case WEAVIATE -> Hint.WEAVIATE;
+            case SYSTEM1 -> Hint.SYSTEM1;
+            case SYSTEM2 -> Hint.SYSTEM2;
+        }), description);
         card.add(fields);
         card.add(buttons, status);
         card.addClassNames("rd-card", "p-4", "flex", "flex-col", "gap-3");
