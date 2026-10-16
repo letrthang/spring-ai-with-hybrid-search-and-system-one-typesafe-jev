@@ -7,6 +7,7 @@ import com.example.ragdemo.weaviate.HybridRetriever.Hit;
 import com.example.ragdemo.weaviate.HybridRetriever.Mode;
 import com.example.ragdemo.weaviate.SampleDataLoader;
 import com.example.ragdemo.weaviate.WeaviateHealth;
+import com.example.ragdemo.db.DatabaseBrowser;
 import com.example.ragdemo.weaviate.WeaviateRecords;
 import com.example.ragdemo.weaviate.WeaviateSchema;
 import com.vaadin.flow.component.Key;
@@ -77,7 +78,8 @@ public class SearchDataView extends Div implements HasDynamicTitle {
     private boolean busy;
 
     public SearchDataView(HybridRetriever retriever, SampleDataLoader loader, WeaviateHealth health,
-                          WeaviateRecords records, WeaviateSchema schemas) {
+                          WeaviateRecords records, WeaviateSchema schemas,
+                          DatabaseBrowser database) {
         this.retriever = retriever;
         this.loader = loader;
         this.health = health;
@@ -90,7 +92,10 @@ public class SearchDataView extends Div implements HasDynamicTitle {
         warning.addClassNames("rd-warning", "m-0", "p-3");
         warning.setVisible(false);
 
-        add(InfoHint.with(new H2(Tr.t("search.title")), Hint.WEAVIATE), intro, toolbar(), statusRow(), warning, results());
+        DatabaseCard databaseCard = new DatabaseCard(database);   // 💾 what the app saved in H2, read-only
+        databaseCard.addClassName("shrink-0");
+        add(InfoHint.with(new H2(Tr.t("search.title")), Hint.WEAVIATE), intro, toolbar(), statusRow(), warning, results(),
+                databaseCard);
         addAttachListener(e -> checkHealth());   // not in the constructor: background work needs the attached UI
     }
 

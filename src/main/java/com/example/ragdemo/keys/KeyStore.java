@@ -122,7 +122,7 @@ public class KeyStore {
         return mask(get(name));
     }
 
-    static String mask(String secret) {
+    public static String mask(String secret) {
         if (secret == null || secret.isBlank()) return "";
         return "••••" + (secret.length() > 8 ? secret.substring(secret.length() - 4) : "");
     }
