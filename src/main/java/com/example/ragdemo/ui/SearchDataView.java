@@ -8,6 +8,7 @@ import com.example.ragdemo.weaviate.HybridRetriever.Mode;
 import com.example.ragdemo.weaviate.SampleDataLoader;
 import com.example.ragdemo.weaviate.WeaviateHealth;
 import com.example.ragdemo.weaviate.WeaviateRecords;
+import com.example.ragdemo.weaviate.WeaviateSchema;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.Shortcuts;
 import com.vaadin.flow.component.button.Button;
@@ -51,6 +52,7 @@ public class SearchDataView extends Div implements HasDynamicTitle {
     private final SampleDataLoader loader;
     private final WeaviateHealth health;
     private final WeaviateRecords records;
+    private final WeaviateSchema schemas;
     private Grid.Column<Hit> bm25Column;
     private Grid.Column<Hit> vectorColumn;
     private Grid.Column<Hit> rrfColumn;
@@ -60,6 +62,7 @@ public class SearchDataView extends Div implements HasDynamicTitle {
     private final Button searchButton = new Button(Tr.t("search.search"));
     private final Button loadButton = new Button(Tr.t("search.load"));
     private final Button clearButton = new Button(Tr.t("search.clear"));
+    private final Button schemaButton = new Button(Tr.t("schema.button"));
     private final StatusPill pill = new StatusPill(ServiceStatus.Service.WEAVIATE);
     private final Paragraph warning = new Paragraph();
     private final Span resultInfo = new Span();
@@ -74,11 +77,12 @@ public class SearchDataView extends Div implements HasDynamicTitle {
     private boolean busy;
 
     public SearchDataView(HybridRetriever retriever, SampleDataLoader loader, WeaviateHealth health,
-                          WeaviateRecords records) {
+                          WeaviateRecords records, WeaviateSchema schemas) {
         this.retriever = retriever;
         this.loader = loader;
         this.health = health;
         this.records = records;
+        this.schemas = schemas;
         addClassNames("p-4", "flex", "flex-col", "gap-3", "h-full", "box-border");
 
         Paragraph intro = new Paragraph(Tr.t("search.intro"));
@@ -118,8 +122,10 @@ public class SearchDataView extends Div implements HasDynamicTitle {
 
         Div searchRow = new Div(query, searchButton);
         searchRow.addClassNames("flex", "gap-2", "items-center", "w-full", "lg:w-auto", "lg:grow");
+        schemaButton.addThemeVariants(ButtonVariant.TERTIARY);
+        schemaButton.addClickListener(e -> new SchemaDialog(schemas).open());   // GET /v1/schema/DemoDoc, live
         Div actions = new Div(mode, new InfoHint(Hint.SEARCH_MODES), loadButton, new InfoHint(Hint.CHUNKS),
-                clearButton);
+                schemaButton, new InfoHint(Hint.SCHEMA), clearButton);
         actions.addClassNames("flex", "flex-wrap", "gap-2", "items-center");
         Div bar = new Div(searchRow, actions);
         bar.addClassNames("rd-card", "p-3", "flex", "flex-wrap", "gap-3", "items-center");
@@ -254,6 +260,7 @@ public class SearchDataView extends Div implements HasDynamicTitle {
         searchButton.setEnabled(ready && !busy);
         loadButton.setEnabled(reachable && !busy);
         clearButton.setEnabled(reachable && !busy);
+        schemaButton.setEnabled(reachable);
     }
 
     private void search() {

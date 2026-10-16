@@ -339,3 +339,15 @@
 /* ---- language dropdown in the header ---- */
 .rd-language { width: 9.5rem; --vaadin-input-field-height: 2rem; font-size: .85rem; }
 @media (max-width: 640px) { .rd-language { width: 6.8rem; } }
+
+/* 🧱 Schema dialog: the properties of the collection as a small table */
+.rd-schema-table {
+    display: grid;
+    grid-template-columns: minmax(4.5rem, 1.2fr) minmax(3.5rem, 1fr) minmax(3.5rem, 1fr) auto auto;
+    font-size: .875rem;
+    border: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+    border-radius: 8px;
+    overflow: hidden;
+}
+.rd-schema-cell { padding: 6px 10px; border-top: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138)); min-width: 0; overflow-wrap: anywhere; }
+.rd-schema-head { border-top: none; font-weight: 600; font-size: .75rem; background: color-mix(in srgb, var(--vaadin-text-color) 5%, transparent); }

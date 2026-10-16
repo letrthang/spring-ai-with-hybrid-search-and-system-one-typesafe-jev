@@ -245,7 +245,7 @@ public class RecordDialog extends AppDialog {
     }
 
     /** One "key: value" line — grey key chip, bordered value box. */
-    private static Div field(String key, String value) {
+    static Div field(String key, String value) {
         Span k = new Span(key + ":");
         k.addClassName("rd-wv-key");
         Span v = new Span(value);
