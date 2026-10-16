@@ -96,15 +96,17 @@ sequenceDiagram
 ### Self-learning: ♻️ reuse first, 🧠 learn last
 
 ```
-question ─► ♻️ closest LearnedAnswer (same language, Weaviate nearText on the question)
+question ─► ♻️ closest learned answer (kind = learned, same language, nearText on the question)
              │ distance < 0.15 and ⚡ "does this stored answer answer THIS question?" ≥ 0.70
              ├── yes ─► answer + its original sources, marked ♻️ — System 2 not called
-             └── no ──► the normal pipeline ─► answer ─► ⚡ verify ─► 🧠 save to LearnedAnswer
+             └── no ──► the normal pipeline ─► answer ─► ⚡ verify ─► 🧠 save (kind = learned)
 ```
 
 An answer is **learned** only if it cites a passage [n], ⚡ says it answers the question (≥ 0.70), a cited passage
 supports it (≥ 0.55) and it gives no orders to an AI (injection < 0.30) — `AnswerVerifier`. Learned answers live in
-their own collection, never mixed with the source passages in `DemoDoc`: generated text must not become a "fact".
+`DemoDoc` too — the free Weaviate Cloud plan allows **one collection** — as objects with `kind = learned` (title = body
+= the question, plus `answer`, `model`, `sources`, scores). Every passage search, list and count filters
+`kind = passage`, so generated text never becomes a "fact"; 📥 Load sample data rebuilds the collection and clears them.
 If System 1 is busy, the answer is simply not learned (it is still shown).
 
 ## 4. System 1 vs System 2
@@ -152,8 +154,7 @@ src/main/java/com/example/ragdemo/
 │   ├── WeaviateRecords.java       one stored object by UUID (fields, vector, times) for 🧾 record details
 │   ├── WeaviateSchema.java        GET /v1/schema/DemoDoc, read live for the 🧱 Schema dialog
 │   ├── Lang.java                  en / vi / ja of a question (by script) → searches keep to that language
-│   ├── LearnedAnswerCollection.java  🧠 the LearnedAnswer collection (vector from the question only)
-│   ├── LearnedAnswers.java        🧠 closest learned question · save (one per question) · list · forget all
+│   ├── LearnedAnswers.java        🧠 kind = learned objects: closest question · save (one per question) · list · forget
 │   └── WeaviateHealth.java        🟢 N passages / 🟡 empty or loaded by an older version / 🔴 down or bad key
 ├── system1/                       ⚡ Laya
 │   ├── LayaClient.java            POST /demo/systemone via RestClient: yes/no questions about a text → probabilities

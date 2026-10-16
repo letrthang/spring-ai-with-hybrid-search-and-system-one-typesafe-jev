@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
  * ⚡ System 1 checks <b>answers</b>, not only passages — the gate of self-learning:
  *
  * <ul>
- *   <li>{@link #verify} — before an answer is saved to the {@code LearnedAnswer} collection: plain rules first (no
+ *   <li>{@link #verify} — before an answer is saved as learned ({@code kind = learned}): plain rules first (no
  *       "I don't know", at least one [n] citation), then Laya: the answer answers the question
  *       ({@value #MIN_ANSWERS}), it is backed by a passage it cites ({@value #MIN_GROUNDED}), and it gives no orders
  *       to an AI (injection below {@value #MAX_INJECTION}). Stricter than the passage thresholds: what is learned is

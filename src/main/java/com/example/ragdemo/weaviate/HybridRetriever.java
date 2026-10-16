@@ -77,7 +77,8 @@ public class HybridRetriever implements DocumentRetriever {
      */
     public Result search(String text, Mode mode, int limit) {
         String lang = Lang.of(text);
-        Filter sameLanguage = Filter.property("lang").eq(lang);
+        // the question's language, and passages only (learned answers live in the same collection — see DemoDocCollection)
+        Filter sameLanguage = Filter.and(Filter.property("lang").eq(lang), DemoDocCollection.passages());
         return weaviate.call("search", client -> {
             CollectionHandle<Map<String, Object>> docs = client.collections.use(DemoDocCollection.NAME);
             try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -109,7 +110,8 @@ public class HybridRetriever implements DocumentRetriever {
         return weaviate.call("list", client -> {
             if (!client.collections.exists(DemoDocCollection.NAME)) return List.<Hit>of();
             return client.collections.use(DemoDocCollection.NAME).query
-                    .fetchObjects(FetchObjects.of(f -> f.offset(offset).limit(limit))).objects().stream()
+                    .fetchObjects(FetchObjects.of(f -> f.offset(offset).limit(limit).filters(DemoDocCollection.passages())))
+                    .objects().stream()
                     .map(o -> hit(o, null, null, null, null, null)).toList();
         });
     }

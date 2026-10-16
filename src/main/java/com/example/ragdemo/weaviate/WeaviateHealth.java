@@ -61,7 +61,7 @@ public class WeaviateHealth {
             if (count == 0) {
                 return ServiceStatus.waiting(WEAVIATE, "status.weaviate.empty");
             }
-            if (!hasLangField(schema.body())) {
+            if (!hasLangField(schema.body()) || !hasField(schema.body(), "kind")) {
                 // loaded by an older version of the app: searches filter on "lang", which this collection lacks
                 return ServiceStatus.waiting(WEAVIATE, "status.weaviate.outdated");
             }
@@ -78,11 +78,16 @@ public class WeaviateHealth {
 
     /** True if the DemoDoc collection in this /v1/schema answer has the "lang" property. */
     static boolean hasLangField(String schemaJson) {
+        return hasField(schemaJson, "lang");
+    }
+
+    /** True if the DemoDoc collection in this /v1/schema answer has this property. */
+    static boolean hasField(String schemaJson, String field) {
         JsonNode classes = JSON.readTree(schemaJson).path("classes");
         for (JsonNode c : classes) {
             if (!DemoDocCollection.NAME.equals(c.path("class").asString(""))) continue;
             for (JsonNode property : c.path("properties")) {
-                if ("lang".equals(property.path("name").asString(""))) return true;
+                if (field.equals(property.path("name").asString(""))) return true;
             }
         }
         return false;

@@ -141,8 +141,9 @@ POST https://letrthang-aimtas-system-one-laya-slm.hf.space/demo/systemone
 ## 🧠 Self-learning
 
 The app learns from its own answers — carefully. After an answer, ⚡ **System 1 verifies it** (does it answer the
-question, is it backed by a passage it cites, no prompt injection); only then is the question + answer saved to a
-separate Weaviate collection, **`LearnedAnswer`**. When someone later asks a very similar question in the same
+question, is it backed by a passage it cites, no prompt injection); only then is the question + answer saved to Weaviate as a
+**learned** object (`kind = learned`, kept apart from the passages — the free Weaviate Cloud plan allows one collection,
+and every passage search filters `kind = passage`). When someone later asks a very similar question in the same
 language, System 1 checks the stored answer fits the new question and the app returns it at once — ♻️ no System 2 call.
 The 🧭 diagram shows both lines; 🔎 Search Data → 🧠 Learned answers lists (and forgets) what was learned.
 
