@@ -14,12 +14,12 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.masterdetaillayout.MasterDetailLayout;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
@@ -61,7 +61,7 @@ public class SearchDataView extends Div implements HasDynamicTitle {
     private final Paragraph warning = new Paragraph();
     private final Span resultInfo = new Span();
     private final Grid<Hit> grid = new Grid<>();
-    private final MasterDetailLayout masterDetail = new MasterDetailLayout();
+    private final SplitMasterDetail masterDetail = new SplitMasterDetail(grid);
     private final Div gridCard = new Div();
     private List<Hit> items = List.of();
     private ServiceStatus status;
@@ -153,17 +153,13 @@ public class SearchDataView extends Div implements HasDynamicTitle {
         // single click selects → detail card; clicking the selected row again deselects → card closes
         grid.asSingleSelect().addValueChangeListener(e -> masterDetail.setDetail(
                 e.getValue() == null ? null : new DetailCard("📄 " + e.getValue().title(), grid::deselectAll,
-                        detailBody(e.getValue()))));
-        grid.addItemDoubleClickListener(e -> {
-            grid.select(e.getItem());
-            new RecordDialog(e.getItem(), records, detailBody(e.getItem())).open();
-        });
+                        detailBody(e.getValue()), RecordDialog.schemaOf(e.getValue()))));
+        grid.addItemDoubleClickListener(e -> openRecord(e.getItem()));
+        // right click on a row: the same 🔍 Details… dialog as a double-click
+        GridContextMenu<Hit> menu = grid.addContextMenu();
+        menu.setDynamicContentHandler(hit -> hit != null);   // only on rows, not on the header or empty space
+        menu.addItem(Tr.t("common.details"), e -> e.getItem().ifPresent(this::openRecord));
 
-        masterDetail.setMaster(grid);
-        masterDetail.setMasterSize("min(560px, 100%)");
-        masterDetail.setDetailSize("380px");
-        masterDetail.addBackdropClickListener(e -> grid.deselectAll());
-        masterDetail.addDetailEscapePressListener(e -> grid.deselectAll());
         masterDetail.setSizeFull();
 
         Button fullScreen = new Button("⛶", e -> toggleFullScreen());
@@ -207,6 +203,11 @@ public class SearchDataView extends Div implements HasDynamicTitle {
         return content;
     }
 
+
+    private void openRecord(Hit hit) {
+        grid.select(hit);
+        new RecordDialog(hit, records, detailBody(hit)).open();
+    }
 
     /** "#2 · 3.41", or "—" when the passage was not in that list. */
     static String rank(Integer rank, Float value, String format) {

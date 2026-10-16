@@ -149,6 +149,13 @@
 @keyframes rd-pulse { 50% { box-shadow: 0 0 0 4px light-dark(rgba(59, 130, 246, .18), rgba(96, 165, 250, .22)); } }
 @media (prefers-reduced-motion: reduce) { .rd-step-active { animation: none; } }
 
+/* ---- grid + detail with a draggable splitter (SplitMasterDetail) ---- */
+.rd-split > * { min-width: 0; min-height: 0; }
+.rd-split-closed::part(splitter) { display: none; }   /* no detail open: the grid has the whole width */
+.rd-split::part(splitter) { min-width: 8px; background: transparent; }
+.rd-split::part(handle) { opacity: .55; }
+.rd-split:hover::part(handle) { opacity: 1; }
+
 /* ---- detail card on the right of a master-detail grid (✕ closes it) ---- */
 .rd-detail {
     margin: 0 0 0 10px;

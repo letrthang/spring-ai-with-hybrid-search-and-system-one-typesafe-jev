@@ -19,13 +19,13 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.masterdetaillayout.MasterDetailLayout;
 import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.data.value.ValueChangeMode;
@@ -80,7 +80,7 @@ public class ChatView extends Div implements HasDynamicTitle {
     private final Div stepRow = new Div();
     private final Div examples = new Div();
     private final Grid<ChatSession> sessions = new Grid<>();
-    private final MasterDetailLayout historyLayout = new MasterDetailLayout();
+    private final SplitMasterDetail historyLayout = new SplitMasterDetail(sessions);
     private final Div historyCard = new Div();
     private final Span sessionCount = new Span();
 
@@ -215,13 +215,15 @@ public class ChatView extends Div implements HasDynamicTitle {
             sessions.select(e.getItem());
             openConversationDialog(e.getItem());
         });
+        // right click on a row: the same 🔍 Details… dialog as a double-click
+        GridContextMenu<ChatSession> menu = sessions.addContextMenu();
+        menu.setDynamicContentHandler(s -> s != null);
+        menu.addItem(Tr.t("common.details"), e -> e.getItem().ifPresent(s -> {
+            sessions.select(s);
+            openConversationDialog(s);
+        }));
         sessions.setSizeFull();
 
-        historyLayout.setMaster(sessions);
-        historyLayout.setMasterSize("min(560px, 100%)");
-        historyLayout.setDetailSize("360px");
-        historyLayout.addBackdropClickListener(e -> sessions.deselectAll());
-        historyLayout.addDetailEscapePressListener(e -> sessions.deselectAll());
         historyLayout.setSizeFull();
 
         Span title = new Span(Tr.t("history.heading"));
