@@ -42,7 +42,7 @@ import java.util.stream.Stream;
  * BM25 and vector search rank the passages differently, and RRF merges both.
  *
  * <p>An empty query lists every passage <b>lazily</b>: the grid asks Weaviate for one page at a time as you scroll
- * (1,500 sample passages). A search shows at most {@value #SEARCH_LIMIT} hits, all at once (RRF needs both full
+ * (3,000 sample passages). A search shows at most {@value #SEARCH_LIMIT} hits, all at once (RRF needs both full
  * lists). Searches and the count run on a virtual thread; the grid's page requests are Vaadin's own lazy loading.
  */
 @Route("search")
