@@ -32,6 +32,7 @@ canteen menu and a planted prompt injection. Searches keep to the question's lan
 | TC-06 | Meaning vs keyword | "why does warm water hold less oxygen" in the 3 modes | The Henry's-law passage first; Hybrid merges both lists |
 | TC-07 | Record details | Double-click a row | 📍 cluster, collection, object UUID + how it is made, REST address · 🧱 fields and indexes · 🧮 vector (1024 numbers) · { } raw JSON |
 | TC-08 | Ask — biotech | 💬 "What does PCR do?" | Answer cites [n]; the "What PCR does" passage ✅ kept |
+| TC-19 | Ask — RAS (first example chip) | 💬 "What does a RAS system do?" (also 🇻🇳 / 🇯🇵 chip) | Answer cites [n]; the RAS overview passage ✅ kept, passages in the page's language |
 | TC-09 | Ask — physics, System 1 at work | 💬 "What does Newton's second law say?" | "F = m · a [1]"; Newton's laws ✅ kept, other physics passages 🚫 dropped |
 | TC-10 | Nothing kept | A question Laya finds no passage for | "System 1 found no passage…", 🧠 step "➖ not needed" |
 | TC-11 | Live progress | Ask anything | Chips move ⏳ 🗄️ → ⚡ → 🧠, then all ✅ |

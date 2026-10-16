@@ -63,6 +63,8 @@ public class KeyManagementView extends Div implements HasDynamicTitle {
         url.setPlaceholder("xxxx.c0.region.gcp.weaviate.cloud");
         PasswordField key = secretField(Tr.t("keys.weaviate.key"), KeyStore.WEAVIATE_KEY);
         url.setWidthFull();
+        url.setSuffixComponent(new InfoHint(Hint.OWN_KEYS));   // ℹ️ you can use your own cluster instead
+        key.setSuffixComponent(new InfoHint(Hint.OWN_KEYS));
 
         return card(Tr.t("keys.weaviate.title"), Tr.t("keys.weaviate.what"),
                 ServiceStatus.Service.WEAVIATE, health::check,
@@ -81,6 +83,7 @@ public class KeyManagementView extends Div implements HasDynamicTitle {
 
     private Component systemTwoCard(SystemTwoHealth health) {
         PasswordField key = secretField(Tr.t("keys.system2.key"), KeyStore.SYSTEM2_KEY);
+        key.setSuffixComponent(new InfoHint(Hint.OWN_KEYS));   // ℹ️ you can use your own OpenRouter key instead
         key.setPlaceholder(keys.has(KeyStore.SYSTEM2_KEY) ? key.getPlaceholder() : "sk-or-v1-…");
         ModelPicker picker = new ModelPicker(models, keys.system2Models());
         TextField baseUrl = new TextField(Tr.t("keys.system2.baseUrl"));
