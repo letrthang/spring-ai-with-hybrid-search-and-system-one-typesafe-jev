@@ -97,10 +97,12 @@ class WeaviateIT {
         assertThat(connector.call("count", DemoDocCollection::count)).isEqualTo(loaded);
         assertThat(health.check().isReady()).isTrue();
 
-        // keyword question: BM25 finds the CRISPR passage by its exact terms
+        // keyword question: BM25 finds the CRISPR passage by its exact terms (the Vietnamese / Japanese copies share
+        // "Cas9", "PAM", "NGG", so BM25's #1 may be one of them; the fused #1 is the English one)
         HybridRetriever.Result keyword = retriever.search("Cas9 PAM NGG", HybridRetriever.Mode.HYBRID, 4);
         assertThat(keyword.hits().getFirst().title()).contains("How Cas9 cuts DNA");
-        assertThat(keyword.hits().getFirst().bm25Rank()).isEqualTo(1);
+        assertThat(keyword.hits()).filteredOn(h -> Integer.valueOf(1).equals(h.bm25Rank()))
+                .singleElement().satisfies(h -> assertThat(h.title()).contains("Cas9"));
         assertThat(keyword.bm25Count()).isPositive();
         assertThat(keyword.vectorCount()).isPositive();
 
