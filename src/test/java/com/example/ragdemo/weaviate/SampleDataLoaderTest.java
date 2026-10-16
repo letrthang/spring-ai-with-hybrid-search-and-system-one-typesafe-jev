@@ -38,4 +38,10 @@ class SampleDataLoaderTest {
         assertThat(chunks).extracting(SampleDataLoader.Chunk::id).doesNotHaveDuplicates();
         assertThat(SampleDataLoader.readSampleData().getFirst().id()).isEqualTo(chunks.getFirst().id());
     }
+
+    @Test
+    void wrappedLinesBecomeOneParagraphButListsAndBlankLinesStay() {
+        assertThat(SampleDataLoader.unwrap("one\ntwo\n\nthree\n- a\n  continued\n- b"))
+                .isEqualTo("one two\n\nthree\n- a continued\n- b");
+    }
 }
