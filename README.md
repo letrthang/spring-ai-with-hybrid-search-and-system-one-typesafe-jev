@@ -17,7 +17,8 @@ flowchart LR
 
 The 🔀 **Data flow** dialog in the app shows every step of one question, with timings.
 
-> 🚧 Work in progress. The plan is in issue [#2](https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/issues/2), the design in [`architecture.md`](architecture.md).
+> **Live demo:** <https://spring-ai-with-hybrid-search-and-system.onrender.com> (free instance: the first visit after
+> 15 idle minutes takes about a minute). The plan is in issue [#2](https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/issues/2), the design in [`architecture.md`](architecture.md).
 
 ---
 
@@ -98,3 +99,21 @@ Needs **Java 25**. Maven comes with the wrapper; Node.js is downloaded by the Va
 ```
 
 The local H2 database file is `./data/ragdemo` (git-ignored). Delete the `data/` folder to forget the saved keys.
+
+## Deploy to Render
+
+The repo is a Render **Blueprint**: [`render.yaml`](render.yaml) describes one free Docker web service, and the
+[`Dockerfile`](Dockerfile) builds the jar (Maven + Vaadin production bundle) and runs it on a plain JRE.
+
+1. Render dashboard → **New → Blueprint** → connect this GitHub repo → **Apply**. No API key or secret is needed.
+2. Render installs its GitHub App; from then on **every push to `main` redeploys** automatically.
+3. Open the service URL → 🔑 **Key Management** → enter the Weaviate URL + Admin key and the OpenRouter key →
+   🔎 **Search Data** → 📥 **Load sample data** → 💬 **Chat**.
+
+Good to know about the free plan:
+- **512 MB RAM** — the image runs at about 280 MB (`JAVA_TOOL_OPTIONS` in the Dockerfile).
+- **No persistent disk** — the H2 file DB lives inside the container, so a redeploy, restart or wake-up
+  **forgets the keys and the chat history**: enter the keys again. (The passages stay in Weaviate.)
+- **Sleeps after 15 minutes idle** — the first request wakes it in about a minute.
+- Health check: `/actuator/health`.
+
