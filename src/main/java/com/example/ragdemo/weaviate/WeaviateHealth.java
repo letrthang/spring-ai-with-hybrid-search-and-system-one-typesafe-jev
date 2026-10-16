@@ -6,6 +6,9 @@ import com.example.ragdemo.rag.ServiceStatus;
 import com.example.ragdemo.rag.SystemDownException;
 import org.springframework.stereotype.Component;
 
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
@@ -22,6 +25,8 @@ import static com.example.ragdemo.rag.ServiceStatus.Service.WEAVIATE;
  */
 @Component
 public class WeaviateHealth {
+
+    private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private final KeyStore keys;
     private final WeaviateConnector weaviate;
@@ -56,6 +61,10 @@ public class WeaviateHealth {
             if (count == 0) {
                 return ServiceStatus.waiting(WEAVIATE, "status.weaviate.empty");
             }
+            if (!hasLangField(schema.body())) {
+                // loaded by an older version of the app: searches filter on "lang", which this collection lacks
+                return ServiceStatus.waiting(WEAVIATE, "status.weaviate.outdated");
+            }
             return ServiceStatus.ready(WEAVIATE, "status.weaviate.ready", count);
         } catch (SystemDownException e) {
             return e.toStatus();
@@ -65,6 +74,18 @@ public class WeaviateHealth {
         } catch (Exception e) {
             return ServiceStatus.down(WEAVIATE, "status.unreachable", Http.describe(e));
         }
+    }
+
+    /** True if the DemoDoc collection in this /v1/schema answer has the "lang" property. */
+    static boolean hasLangField(String schemaJson) {
+        JsonNode classes = JSON.readTree(schemaJson).path("classes");
+        for (JsonNode c : classes) {
+            if (!DemoDocCollection.NAME.equals(c.path("class").asString(""))) continue;
+            for (JsonNode property : c.path("properties")) {
+                if ("lang".equals(property.path("name").asString(""))) return true;
+            }
+        }
+        return false;
     }
 
     /** Weaviate Cloud shows the REST endpoint without "https://"; people paste it either way. */

@@ -105,9 +105,9 @@ public class RagService {
             long at = flow.now();
             HybridRetriever.Result found = retriever.search(question, HybridRetriever.Mode.HYBRID, HybridRetriever.TOP_K);
             flow.call(Actor.APP, Actor.WEAVIATE, Msg.of("flow.bm25"), at, found.bm25Ms(),
-                    Msg.of("flow.bm25.summary", HybridRetriever.BM25_PROPERTIES, HybridRetriever.CANDIDATES));
+                    Msg.of("flow.bm25.summary", HybridRetriever.BM25_PROPERTIES, HybridRetriever.CANDIDATES, found.lang()));
             flow.call(Actor.APP, Actor.WEAVIATE, Msg.of("flow.vector"), at, found.vectorMs(),
-                    Msg.of("flow.vector.summary", HybridRetriever.CANDIDATES));
+                    Msg.of("flow.vector.summary", HybridRetriever.CANDIDATES, found.lang()));
             flow.reply(Actor.WEAVIATE, Actor.APP, Msg.of("flow.lists"), flow.now(),
                     Msg.of("flow.lists.summary", found.bm25Count(), found.vectorCount()));
             List<Document> passages = found.hits().stream().map(HybridRetriever::toDocument).toList();

@@ -32,7 +32,7 @@ class RagServiceTest {
             @Override
             public Result search(String text, Mode mode, int limit) {
                 if (failure != null) throw failure;
-                return new Result(hits, 3, 40, 20, 120);
+                return new Result(hits, 3, 40, 20, 120, "en");
             }
         };
     }

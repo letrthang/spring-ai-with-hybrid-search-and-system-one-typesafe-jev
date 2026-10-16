@@ -28,20 +28,23 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.HasDynamicTitle;
 import com.vaadin.flow.router.Route;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
+import java.util.stream.Stream;
 
 /**
  * 🔎 Search Data: look inside Weaviate. The same question in the three modes shows <i>why</i> hybrid search exists:
  * BM25 and vector search rank the passages differently, and RRF merges both.
  *
- * <p>An empty query lists the passages (the demo has a few dozen, so the first {@value #BROWSE_LIMIT} are loaded at
- * once). Every Weaviate call runs on a virtual thread.
+ * <p>An empty query lists every passage <b>lazily</b>: the grid asks Weaviate for one page at a time as you scroll
+ * (1,500 sample passages). A search shows at most {@value #SEARCH_LIMIT} hits, all at once (RRF needs both full
+ * lists). Searches and the count run on a virtual thread; the grid's page requests are Vaadin's own lazy loading.
  */
 @Route("search")
 public class SearchDataView extends Div implements HasDynamicTitle {
 
-    static final int BROWSE_LIMIT = 200;
     static final int SEARCH_LIMIT = 40;   // 20 BM25 + 20 vector at most, fewer after merging
 
     private final HybridRetriever retriever;
@@ -64,6 +67,9 @@ public class SearchDataView extends Div implements HasDynamicTitle {
     private final SplitMasterDetail masterDetail = new SplitMasterDetail(grid);
     private final Div gridCard = new Div();
     private List<Hit> items = List.of();
+    /** Row number per passage id, for the # column (search results, or the pages loaded so far). */
+    private final Map<String, Integer> position = new HashMap<>();
+    private boolean showing;   // the grid shows a list or a search result (else: nothing loaded yet)
     private ServiceStatus status;
     private boolean busy;
 
@@ -130,7 +136,7 @@ public class SearchDataView extends Div implements HasDynamicTitle {
     }
 
     private Div results() {
-        grid.addColumn(h -> items.indexOf(h) + 1).setHeader(InfoHint.with(new Span("#"), Hint.ROW_ORDER)).setWidth("4em").setFlexGrow(0)
+        grid.addColumn(h -> position.getOrDefault(h.id(), 0)).setHeader(InfoHint.with(new Span("#"), Hint.ROW_ORDER)).setWidth("4em").setFlexGrow(0)
                 .setTextAlign(ColumnTextAlign.END);
         grid.addColumn(Hit::title).setHeader(InfoHint.with(new Span(Tr.t("search.col.title")), Hint.CHUNKS)).setFlexGrow(4);
         grid.addColumn(Hit::source).setHeader(InfoHint.with(new Span(Tr.t("search.col.source")), Hint.RECORD)).setFlexGrow(2);
@@ -237,7 +243,7 @@ public class SearchDataView extends Div implements HasDynamicTitle {
         warning.setVisible(!status.isReady());
         warning.setText("⚠️ " + Tr.t(status.service().key()) + ": " + Tr.t(status.reason()));
         applyEnabled();
-        if (status.isReady() && items.isEmpty()) search();
+        if (status.isReady() && !showing) search();
     }
 
     /** Search needs a ready collection; Load / Clear need only a reachable Weaviate. Nothing while busy. */
@@ -254,21 +260,40 @@ public class SearchDataView extends Div implements HasDynamicTitle {
         String text = query.getValue().strip();
         Mode m = mode.getValue();
         setBusy(true, Tr.t(text.isEmpty() ? "search.loading" : "search.searching"));
-        Background.run(this, () -> {
-            if (text.isEmpty()) {
-                return new Shown(retriever.list(0, BROWSE_LIMIT), null);
-            }
-            HybridRetriever.Result r = retriever.search(text, m, SEARCH_LIMIT);
-            return new Shown(r.hits(), r);
-        }, shown -> {
+        if (text.isEmpty()) {
+            listAll();
+            return;
+        }
+        Background.run(this, () -> retriever.search(text, m, SEARCH_LIMIT), result -> {
             // texts are built here, on the page (in its language), not on the background thread
-            items = shown.hits;
+            items = result.hits();
+            position.clear();
+            for (int i = 0; i < items.size(); i++) position.put(items.get(i).id(), i + 1);
             grid.setItems(items);
-            showScoreColumns(text.isEmpty() ? null : m);
-            resultInfo.setText(shown.result == null ? Tr.t("search.info.list", items.size())
-                    : Tr.t("search.info.search", items.size(), describe(shown.result, m)));
+            showing = true;
+            showScoreColumns(m);
+            resultInfo.setText(Tr.t("search.info.search", items.size(), describe(result, m)));
             setBusy(false, null);
         }, this::failed);
+    }
+
+    /** Every passage, one page at a time: the count first (background), then Weaviate pages as the grid scrolls. */
+    private void listAll() {
+        Background.run(this, retriever::count, total -> {
+            items = List.of();
+            position.clear();
+            grid.setItems(q -> page(q.getOffset(), q.getLimit()), q -> total.intValue());
+            showing = true;
+            showScoreColumns(null);
+            resultInfo.setText(Tr.t("search.info.list", total));
+            setBusy(false, null);
+        }, this::failed);
+    }
+
+    private Stream<Hit> page(int offset, int limit) {
+        List<Hit> page = retriever.list(offset, limit);
+        for (int i = 0; i < page.size(); i++) position.put(page.get(i).id(), offset + i + 1);
+        return page.stream();
     }
 
     /**
@@ -284,11 +309,12 @@ public class SearchDataView extends Div implements HasDynamicTitle {
     private static String describe(HybridRetriever.Result r, Mode m) {
         String bm25 = Tr.t("search.info.bm25", r.bm25Count(), r.bm25Ms());
         String vector = Tr.t("search.info.vector", r.vectorCount(), r.vectorMs());
-        return switch (m) {
+        String scores = switch (m) {
             case BM25 -> bm25;
             case VECTOR -> vector;
             case HYBRID -> bm25 + " · " + vector + " · " + Tr.t("search.info.merged");
         };
+        return scores + " · " + Tr.t("search.info.lang", r.lang());
     }
 
     private void loadSampleData() {
@@ -296,7 +322,7 @@ public class SearchDataView extends Div implements HasDynamicTitle {
         Background.run(this, loader::load, count -> {
             Notification.show(Tr.t("search.loaded", count)).addThemeVariants(NotificationVariant.SUCCESS);
             setBusy(false, null);
-            items = List.of();
+            showing = false;   // the health check lists the fresh data
             checkHealth();
         }, this::failed);
     }
@@ -311,7 +337,9 @@ public class SearchDataView extends Div implements HasDynamicTitle {
                 return true;
             }, done -> {
                 items = List.of();
+                position.clear();
                 grid.setItems(items);
+                showing = false;
                 setBusy(false, null);
                 checkHealth();
             }, this::failed);
@@ -343,6 +371,4 @@ public class SearchDataView extends Div implements HasDynamicTitle {
         return Tr.t("page.search");
     }
 
-    private record Shown(List<Hit> hits, HybridRetriever.Result result) {
-    }
 }
