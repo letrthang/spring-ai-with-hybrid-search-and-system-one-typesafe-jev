@@ -54,7 +54,7 @@ public class WeaviateSchema {
                 throw new SystemDownException(WEAVIATE, "status.invalidKey");
             }
             if (response.statusCode() != 200) throw new SystemDownException(WEAVIATE, "status.http", response.statusCode());
-            return parse(url, response.body());
+            return parse(keys.shownUrl(KeyStore.WEAVIATE_URL, url), response.body());   // owner's host masked
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new SystemDownException(WEAVIATE, "status.interrupted");

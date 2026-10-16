@@ -26,6 +26,7 @@ class KeyOverrideTest {
     @BeforeEach
     void empty() {
         repository.deleteAll();
+        keys.clearTyped();
     }
 
     @Test

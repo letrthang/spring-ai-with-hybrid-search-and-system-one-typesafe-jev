@@ -59,8 +59,11 @@ public class KeyManagementView extends Div implements HasDynamicTitle {
 
     private Component weaviateCard(WeaviateHealth health) {
         TextField url = new TextField(Tr.t("keys.weaviate.url"));
-        url.setValue(keys.get(KeyStore.WEAVIATE_URL));   // the saved URL, or the configured default
-        url.setPlaceholder("xxxx.c0.region.gcp.weaviate.cloud");
+        // the site owner's default cluster is never shown: only a URL typed here is filled in
+        url.setValue(keys.typedIn(KeyStore.WEAVIATE_URL) ? keys.get(KeyStore.WEAVIATE_URL) : "");
+        url.setPlaceholder(keys.fromConfig(KeyStore.WEAVIATE_URL) ? Tr.t("keys.defaultSet")
+                : "xxxx.c0.region.gcp.weaviate.cloud");
+        if (keys.fromConfig(KeyStore.WEAVIATE_URL)) url.setHelperText(Tr.t("keys.fromConfigUrl"));
         PasswordField key = secretField(Tr.t("keys.weaviate.key"), KeyStore.WEAVIATE_KEY);
         url.setWidthFull();
         url.setSuffixComponent(new InfoHint(Hint.OWN_KEYS));   // ℹ️ you can use your own cluster instead
@@ -200,13 +203,19 @@ public class KeyManagementView extends Div implements HasDynamicTitle {
         return field;
     }
 
+    /** Nothing of a key is ever shown — only whether the owner's default or a typed key is in use. */
     private void refreshSecret(PasswordField field, String name) {
         field.clear();
-        boolean saved = keys.has(name);
-        field.setPlaceholder(saved ? keys.masked(name) : Tr.t("keys.notSet"));
-        field.setHelperText(!saved ? null : keys.fromConfig(name)
-                ? Tr.t("keys.fromConfig")
-                : Tr.t("keys.savedKeep"));
+        if (keys.fromConfig(name)) {
+            field.setPlaceholder(Tr.t("keys.defaultSet"));
+            field.setHelperText(Tr.t("keys.fromConfig"));
+        } else if (keys.typedIn(name)) {
+            field.setPlaceholder(Tr.t("keys.typedSet"));
+            field.setHelperText(Tr.t("keys.savedKeep"));
+        } else {
+            field.setPlaceholder(Tr.t("keys.notSet"));
+            field.setHelperText(null);
+        }
     }
 
     private void saveSecret(PasswordField field, String name) {

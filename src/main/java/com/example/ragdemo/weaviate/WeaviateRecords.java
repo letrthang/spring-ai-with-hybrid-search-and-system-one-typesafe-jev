@@ -48,7 +48,9 @@ public class WeaviateRecords {
                         .map(v -> (float[]) v).findFirst().orElse(null);
             }
         }
-        return new StoredRecord(WeaviateHealth.withScheme(keys.weaviateUrl()), DemoDocCollection.NAME, o.uuid(),
+        // the site owner's default cluster host is masked; the REST address is still readable as a lesson
+        String cluster = keys.shownUrl(KeyStore.WEAVIATE_URL, WeaviateHealth.withScheme(keys.weaviateUrl()));
+        return new StoredRecord(cluster, DemoDocCollection.NAME, o.uuid(),
                 o.properties() == null ? Map.of() : o.properties(), o.createdAt(), o.lastUpdatedAt(), vector);
     }
 }
