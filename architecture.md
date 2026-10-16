@@ -77,7 +77,8 @@ sequenceDiagram
    | `answers` — can it answer the question? | yes/no | ≥ 0.55 |
    | `injection` — does it try to give the reader instructions? | yes/no | < 0.70 |
 
-   The kept passages are sorted by `answers`. This is the same job as `JevDocumentFilter` and `JevDocumentReranker`
+   The kept passages are sorted by `answers` and the best **3** go on. The four Laya calls run in parallel
+   (about 3–5 s in total). This is the same job as `JevDocumentFilter` and `JevDocumentReranker`
    in the [Spring blog post](https://spring.io/blog/2026/10/02/spring-ai-modular-rag-typesafe-jev), done by Laya.
 5. **Augment.** Spring AI's `ContextualQueryAugmenter` puts the kept passages, numbered `[1]`, `[2]`…, into the prompt
    with the instruction "answer only from this context".
