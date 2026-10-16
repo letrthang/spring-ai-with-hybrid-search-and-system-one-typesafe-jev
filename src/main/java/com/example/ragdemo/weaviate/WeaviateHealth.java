@@ -3,6 +3,7 @@ package com.example.ragdemo.weaviate;
 import com.example.ragdemo.keys.KeyStore;
 import com.example.ragdemo.rag.Http;
 import com.example.ragdemo.rag.ServiceStatus;
+import com.example.ragdemo.rag.SystemDownException;
 import org.springframework.stereotype.Component;
 
 import java.net.http.HttpResponse;
@@ -11,16 +12,23 @@ import java.time.Duration;
 import static com.example.ragdemo.rag.ServiceStatus.Service.WEAVIATE;
 
 /**
- * Is Weaviate usable? 1) the server is ready ({@code /v1/.well-known/ready}, no key), 2) the key is accepted
- * ({@code /v1/schema} with the key).
+ * Is Weaviate usable for RAG?
+ * <ol>
+ *   <li>the cluster is ready ({@code /v1/.well-known/ready}, no key),</li>
+ *   <li>the key is accepted ({@code /v1/schema} with the key),</li>
+ *   <li>the collection exists and has passages — an empty collection is 🟡: a RAG demo with nothing to find shows
+ *       nothing.</li>
+ * </ol>
  */
 @Component
 public class WeaviateHealth {
 
     private final KeyStore keys;
+    private final WeaviateConnector weaviate;
 
-    public WeaviateHealth(KeyStore keys) {
+    public WeaviateHealth(KeyStore keys, WeaviateConnector weaviate) {
         this.keys = keys;
+        this.weaviate = weaviate;
     }
 
     public ServiceStatus check() {
@@ -35,11 +43,22 @@ public class WeaviateHealth {
                 return ServiceStatus.down(WEAVIATE, "cluster not ready (HTTP " + ready.statusCode() + ")");
             }
             HttpResponse<String> schema = Http.get(base + "/v1/schema", keys.weaviateKey(), Duration.ofSeconds(15));
-            return switch (schema.statusCode()) {
-                case 200 -> ServiceStatus.ready(WEAVIATE, "cluster ready, key OK");
-                case 401, 403 -> ServiceStatus.down(WEAVIATE, "invalid API key — check 🔑 Key Management");
-                default -> ServiceStatus.down(WEAVIATE, "answered HTTP " + schema.statusCode());
-            };
+            if (schema.statusCode() == 401 || schema.statusCode() == 403) {
+                return ServiceStatus.down(WEAVIATE, "invalid API key — check 🔑 Key Management");
+            }
+            if (schema.statusCode() != 200) {
+                return ServiceStatus.down(WEAVIATE, "answered HTTP " + schema.statusCode());
+            }
+            long count = weaviate.call("count", DemoDocCollection::count);
+            if (count < 0) {
+                return ServiceStatus.waiting(WEAVIATE, "no collection yet — load sample data in 🔎 Search Data");
+            }
+            if (count == 0) {
+                return ServiceStatus.waiting(WEAVIATE, "collection is empty — load sample data in 🔎 Search Data");
+            }
+            return ServiceStatus.ready(WEAVIATE, count + " passages");
+        } catch (SystemDownException e) {
+            return e.toStatus();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return ServiceStatus.down(WEAVIATE, "check interrupted");

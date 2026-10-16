@@ -68,6 +68,19 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Spring AI modular RAG: DocumentRetriever, DocumentPostProcessor, ContextualQueryAugmenter, Document -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-rag</artifactId>
+        </dependency>
+
+        <!-- Weaviate Java client v6: BM25, nearText, collections. (Not spring-ai-weaviate-store: it has no BM25.) -->
+        <dependency>
+            <groupId>io.weaviate</groupId>
+            <artifactId>client6</artifactId>
+            <version>6.3.1</version>
+        </dependency>
+
         <!-- /actuator/health for Render's health check -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -79,6 +92,12 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- WeaviateIT: a real Weaviate (+ a small local vectorizer) in Docker; skipped when Docker is not running -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -87,6 +106,17 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <!-- *IT tests (a real Weaviate in Docker) run with the unit tests; they skip themselves without Docker -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>**/*Test.java</include>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>com.vaadin</groupId>
