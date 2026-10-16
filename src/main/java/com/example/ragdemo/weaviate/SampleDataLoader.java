@@ -120,6 +120,21 @@ public class SampleDataLoader {
     private static void addChunk(List<Chunk> chunks, String source, String docTitle, String section,
                                  StringBuilder body) {
         if (section == null || body.toString().isBlank()) return;
-        chunks.add(new Chunk(source, chunks.size() + 1, docTitle + " — " + section, body.toString().strip()));
+        chunks.add(new Chunk(source, chunks.size() + 1, docTitle + " — " + section, unwrap(body.toString())));
+    }
+
+    /** Joins the lines of a wrapped Markdown paragraph; keeps blank lines and "- " list items on their own line. */
+    static String unwrap(String text) {
+        List<String> lines = new ArrayList<>();
+        for (String raw : text.strip().split("\\R")) {
+            String line = raw.strip();
+            boolean continues = !line.isEmpty() && !line.startsWith("- ") && !lines.isEmpty() && !lines.getLast().isEmpty();
+            if (continues) {
+                lines.set(lines.size() - 1, lines.getLast() + " " + line);
+            } else {
+                lines.add(line);
+            }
+        }
+        return String.join("\n", lines);
     }
 }

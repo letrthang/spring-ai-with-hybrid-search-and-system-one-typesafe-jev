@@ -36,3 +36,19 @@
 .rd-status-WAITING { background: light-dark(#fff6dd, #2d2610); }
 .rd-status-DOWN    { background: light-dark(#fdeaea, #2f1517); }
 .rd-status-UNKNOWN { background: transparent; }
+
+/* ---- ⚠️ warning banner (a service is not ready) ---- */
+.rd-warning {
+    border-radius: 10px;
+    border: 1px solid light-dark(#f0c36d, #6b5520);
+    background: light-dark(#fff6dd, #2d2610);
+}
+
+/* ---- ⛶ a card shown over the whole viewport (Esc exits) ---- */
+.rd-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    border-radius: 0;
+    background: var(--vaadin-background-color, light-dark(#ffffff, #14181d));
+}
