@@ -148,6 +148,15 @@ public enum Hint {
                     + "oxygen\") in each mode and compare the ranks.",
             "https://docs.weaviate.io/weaviate/concepts/search/hybrid-search"),
 
+    ROW_ORDER("# — the position in this list",
+            "Where this passage stands in the list you are looking at.",
+            "After a search it is the final order: by RRF score in Hybrid, by BM25 score in BM25, by vector distance "
+                    + "in Vector. With an empty query it is just the order Weaviate returns the objects in — no ranking.",
+            List.of("🔀 RRF", "🔤 BM25", "🧭 Vector"),
+            "A search engine's job is ordering: the top of the list is what it thinks fits best. Compare the three "
+                    + "modes to see that different methods give different orders for the same question.",
+            null),
+
     CHUNKS("📥 Passages (chunks)",
             "Small pieces of the documents — here one per \"## section\" of each sample file.",
             "📥 Load sample data drops the collection, creates it again and inserts every passage. Weaviate makes "
