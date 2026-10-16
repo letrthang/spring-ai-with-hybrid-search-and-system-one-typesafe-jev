@@ -140,9 +140,7 @@ class WeaviateIT {
 
         // 🧠 self-learning: save a verified answer, find it again by a similar question (same language only)
         LearnedAnswers learned = new LearnedAnswers(connector);
-        learned.useDefinition(LearnedAnswerCollection.definition(
-                VectorConfig.text2vecModel2Vec(v -> v.sourceProperties("question"))));
-        assertThat(learned.closest("What does PCR do?")).isEmpty();   // no collection yet
+        assertThat(learned.closest("What does PCR do?")).isEmpty();   // nothing learned yet
         learned.save("What does PCR do?", "PCR copies a piece of DNA [1].", "m:free",
                 List.of(new LearnedAnswers.LearnedSource("What PCR does", "en/02-pcr.md", 1, "PCR makes copies…", 1)),
                 0.9, 0.8, 0.01);
@@ -152,8 +150,13 @@ class WeaviateIT {
         assertThat(near.answer()).isEqualTo("PCR copies a short piece of DNA [1].");
         assertThat(near.distance()).isLessThan((float) com.example.ragdemo.rag.RagService.REUSE_DISTANCE);
         assertThat(learned.closest("PCR dùng để làm gì?")).isEmpty();   // other language: never matched
+        // a learned answer is never a passage: searches, the list and the passage count do not see it
+        assertThat(retriever.search("What does PCR do?", HybridRetriever.Mode.HYBRID, 40).hits())
+                .noneMatch(h -> "learned".equals(h.source()));
+        assertThat(retriever.count()).isEqualTo(loaded);
         learned.forgetAll();
         assertThat(learned.count()).isZero();
+        assertThat(retriever.count()).isEqualTo(loaded);   // forgetting keeps every passage
     }
 
     @Test

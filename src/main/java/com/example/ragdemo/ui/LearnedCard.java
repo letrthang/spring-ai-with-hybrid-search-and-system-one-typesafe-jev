@@ -16,7 +16,7 @@ import java.util.Locale;
 
 /**
  * 🧠 Learned answers (🔎 Search Data): what the app learned — every answer here was verified by ⚡ System 1 before
- * it was saved to the LearnedAnswer collection. Lazy grid (one Weaviate page per scroll), a count, and 🗑 Forget all.
+ * it was saved (DemoDoc objects with kind = learned). Lazy grid (one Weaviate page per scroll), a count, and 🗑 Forget all.
  */
 public class LearnedCard extends Div {
 

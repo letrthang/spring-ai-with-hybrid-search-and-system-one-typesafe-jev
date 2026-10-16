@@ -60,6 +60,7 @@ public class SampleDataLoader {
             p.put("source", source);
             p.put("chunkNo", chunkNo);
             p.put("lang", lang());
+            p.put("kind", DemoDocCollection.KIND_PASSAGE);
             return p;
         }
     }

@@ -246,7 +246,7 @@ text readable (AA contrast).
 3. 🔎 Search Data → 🧠 Learned answers → 🔄.
 
 **Expected:** "🧠 Learned ✅ — ⚡ answers 0.9x · grounded 0.8x · injection 0.0x"; the 🧠 Learn chip ✅; Trace line
-"🧠 Learn — saved…"; Data flow hops "7. ⚡ verify the answer" → "8. 🧠 learn"; the question appears in Learned answers;
+"🧠 Learn — saved…"; Data flow hops "7. ⚡ verify the answer" → "8. 🧠 learn"; the question appears in 🧠 Learned answers (a `kind = learned` object in DemoDoc, never in the Passages grid);
 the 🧭 diagram's save-back line shows the new count.
 
 ### TC-34 · A similar question reuses it

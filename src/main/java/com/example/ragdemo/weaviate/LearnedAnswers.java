@@ -1,6 +1,5 @@
 package com.example.ragdemo.weaviate;
 
-import io.weaviate.client6.v1.api.collections.CollectionConfig;
 import io.weaviate.client6.v1.api.collections.WeaviateObject;
 import io.weaviate.client6.v1.api.collections.query.FetchObjects;
 import io.weaviate.client6.v1.api.collections.query.Filter;
@@ -20,7 +19,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * 🧠 Self-learning store: verified answers in the {@value LearnedAnswerCollection#NAME} collection.
+ * 🧠 Self-learning store: verified answers, kept in the {@value DemoDocCollection#NAME} collection as objects with
+ * {@code kind = learned} (the free Weaviate Cloud plan allows one collection). Passage searches never see them
+ * ({@link DemoDocCollection#passages()}); the lookup here sees nothing else. A learned object's title and body are its
+ * question, so its vector is the question's meaning.
  *
  * <ul>
  *   <li>{@link #closest} — the learned question nearest to a new one (same language, by meaning).</li>
@@ -45,24 +47,19 @@ public class LearnedAnswers {
     }
 
     private final WeaviateConnector weaviate;
-    private CollectionConfig definition = LearnedAnswerCollection.definition();
 
     public LearnedAnswers(WeaviateConnector weaviate) {
         this.weaviate = weaviate;
-    }
-
-    /** Tests use a local vectorizer. */
-    void useDefinition(CollectionConfig local) {
-        this.definition = local;
     }
 
     /** The nearest learned question in the same language, if any answer was learned yet. */
     public Optional<Learned> closest(String question) {
         String lang = Lang.of(question);
         return weaviate.call("learned lookup", client -> {
-            if (!client.collections.exists(LearnedAnswerCollection.NAME)) return Optional.<Learned>empty();
-            var found = client.collections.use(LearnedAnswerCollection.NAME).query
-                    .nearText(question, q -> q.limit(1).filters(Filter.property("lang").eq(lang))
+            if (!client.collections.exists(DemoDocCollection.NAME)) return Optional.<Learned>empty();
+            var found = client.collections.use(DemoDocCollection.NAME).query
+                    .nearText(question, q -> q.limit(1)
+                            .filters(Filter.and(Filter.property("lang").eq(lang), DemoDocCollection.learned()))
                             .returnMetadata(Metadata.DISTANCE)).objects();
             return found.stream().findFirst().map(LearnedAnswers::learned);
         });
@@ -74,7 +71,11 @@ public class LearnedAnswers {
         String lang = Lang.of(question);
         String id = idOf(lang, question);
         Map<String, Object> p = new LinkedHashMap<>();
-        p.put("question", question.strip());
+        p.put("title", question.strip());   // title + body = the question: that is what gets vectorized
+        p.put("body", question.strip());
+        p.put("source", "learned");
+        p.put("chunkNo", 0);
+        p.put("kind", DemoDocCollection.KIND_LEARNED);
         p.put("answer", answer.strip());
         p.put("lang", lang);
         p.put("model", model == null ? "" : model);
@@ -83,8 +84,10 @@ public class LearnedAnswers {
         p.put("groundedScore", groundedScore);
         p.put("injectionScore", injectionScore);
         return weaviate.call("learn", client -> {
-            LearnedAnswerCollection.ensure(client, definition);
-            var data = client.collections.use(LearnedAnswerCollection.NAME).data;
+            if (!client.collections.exists(DemoDocCollection.NAME)) {
+                throw new IllegalStateException("no " + DemoDocCollection.NAME + " collection — load the sample data first");
+            }
+            var data = client.collections.use(DemoDocCollection.NAME).data;
             if (data.exists(id)) data.deleteById(id);   // the same question again: the newest answer wins
             data.insert(p, o -> o.uuid(id));
             log.info("🧠 learned: \"{}\" ({})", question.length() > 80 ? question.substring(0, 80) + "…" : question, lang);
@@ -93,24 +96,24 @@ public class LearnedAnswers {
     }
 
     public long count() {
-        return weaviate.call("learned count", LearnedAnswerCollection::count);
+        return weaviate.call("learned count", DemoDocCollection::learnedCount);
     }
 
     /** A page of learned answers (Search Data → 🧠 Learned answers). */
     public List<Learned> list(int offset, int limit) {
         return weaviate.call("learned list", client -> {
-            if (!client.collections.exists(LearnedAnswerCollection.NAME)) return List.<Learned>of();
-            return client.collections.use(LearnedAnswerCollection.NAME).query
-                    .fetchObjects(FetchObjects.of(f -> f.offset(offset).limit(limit))).objects().stream()
-                    .map(LearnedAnswers::learned).toList();
+            if (!client.collections.exists(DemoDocCollection.NAME)) return List.<Learned>of();
+            return client.collections.use(DemoDocCollection.NAME).query
+                    .fetchObjects(FetchObjects.of(f -> f.offset(offset).limit(limit).filters(DemoDocCollection.learned())))
+                    .objects().stream().map(LearnedAnswers::learned).toList();
         });
     }
 
-    /** Forgets everything learned (drops the collection). */
+    /** Forgets everything learned (deletes the kind = learned objects; the passages stay). */
     public void forgetAll() {
         weaviate.call("forget learned", client -> {
-            if (client.collections.exists(LearnedAnswerCollection.NAME)) {
-                client.collections.delete(LearnedAnswerCollection.NAME);
+            if (client.collections.exists(DemoDocCollection.NAME)) {
+                client.collections.use(DemoDocCollection.NAME).data.deleteMany(DemoDocCollection.learned());
             }
             return null;
         });
@@ -133,7 +136,7 @@ public class LearnedAnswers {
                 log.debug("🧠 learned sources unreadable: {}", e.getMessage());
             }
         }
-        return new Learned(o.uuid(), str(p.get("question")), str(p.get("answer")), str(p.get("lang")),
+        return new Learned(o.uuid(), str(p.get("title")), str(p.get("answer")), str(p.get("lang")),
                 str(p.get("model")), sources, num(p.get("answersScore")), num(p.get("groundedScore")),
                 num(p.get("injectionScore")), o.queryMetadata() == null ? null : o.queryMetadata().distance());
     }

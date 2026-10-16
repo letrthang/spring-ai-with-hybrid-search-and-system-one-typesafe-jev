@@ -50,6 +50,7 @@ public class RecordDialog extends AppDialog {
             new Row("source", "text", Hint.SCHEMA),
             new Row("chunkNo", "int", Hint.SCHEMA),
             new Row("lang", "text", Hint.SCHEMA),
+            new Row("kind", "text", Hint.LEARNING),
             new Row("(vector)", "float[]", Hint.EMBEDDING));
 
     public RecordDialog(Hit hit, WeaviateRecords records, Component passage) {
@@ -114,6 +115,7 @@ public class RecordDialog extends AppDialog {
         values.put("source", hit.source());
         values.put("chunkNo", hit.chunkNo() == null ? "—" : String.valueOf(hit.chunkNo()));
         values.put("lang", Lang.of(hit.body()));
+        values.put("kind", DemoDocCollection.KIND_PASSAGE);   // the grid only ever shows passages
         values.put("(vector)", Tr.t("record.vectorInCard"));
         Div rows = new Div();
         rows.addClassNames("flex", "flex-col", "gap-2");
