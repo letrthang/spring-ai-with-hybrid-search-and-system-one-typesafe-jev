@@ -87,7 +87,7 @@ is not persistent, so saved keys are lost on a restart or redeploy; the environm
 
 1. Open 🔑 **Key Management**, enter the two keys (pick models from the dropdown — free ones first).
 2. 🔎 **Search Data** → 📥 **Load sample data** (biotech, physics and a fish-farm handbook).
-3. 💬 **Chat** → try *"What does PCR do?"* and open 📚 Sources and 🔀 Data flow.
+3. 💬 **Chat** → try *"What does a RAS system do?"* and open 📚 Sources and 🔀 Data flow.
 
 ### Get the two keys
 
@@ -153,7 +153,7 @@ The app re-checks every 30 seconds and turns the chat back on by itself when all
 
 1. **🔑 Key Management** — show that only two keys are needed; 🧪 Test turns the pills 🟢.
 2. **🔎 Search Data** — 📥 Load sample data. Search **"Newton's second law"** and then **"why does warm water hold less oxygen"** in BM25, Vector and Hybrid: watch the ranks change and RRF merge them. Double-click a row to see the stored record.
-3. **💬 Chat** — ask **"What does PCR do?"**. The step chips show live progress 🗄️ → ⚡ → 🧠.
+3. **💬 Chat** — ask **"What does a RAS system do?"**. The step chips show live progress 🗄️ → ⚡ → 🧠.
    - Open **📚 Sources**: which passages Weaviate found, Laya's three scores, ✅ kept / 🚫 dropped.
    - Open **🔀 Data flow**: the whole trip — BM25 + vector, RRF, one Laya call per passage, the prompt, System 2.
 4. Ask **"What does Newton's second law say?"** — the answer is *F = m · a* with [1]. 📚 Sources shows Newton's laws ✅ kept, while the other physics passages the search also found are 🚫 dropped as not relevant: System 1 at work.
