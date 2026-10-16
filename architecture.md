@@ -185,12 +185,51 @@ the same keys (`TranslationsTest` checks it). The backend never builds English s
 An argument written `@key` is translated too (e.g. `flow.stopped` + `@service.SYSTEM1`). The 🌐 dropdown in the
 header stores the language in the session and reloads the page. Logs stay in English.
 
-`RagService` calls the Spring AI building blocks **one by one, in plain code**, so each step can be timed and drawn in
-the data flow. Spring AI's `RetrievalAugmentationAdvisor` wires the very same pieces
-(`DocumentRetriever` → `DocumentPostProcessor`s → `QueryAugmenter`) in one advisor; once you understand this file,
-you understand that advisor.
+## 7. Spring AI — the main classes
 
-## 7. Keys and configuration
+Spring AI (`spring-ai-rag` + `spring-ai-openai`, version 2.0.1) gives the app its RAG building blocks. These are the
+classes to learn first, in the order a question meets them:
+
+| Class (package `org.springframework.ai…`) | What it is | Where it is used here |
+|---|---|---|
+| `document.Document` | One piece of text + an id + a `metadata` map (+ an optional score). The unit that moves through RAG. | `HybridRetriever` builds one per passage; `SystemOneFilter` adds the Laya scores and the verdict to its metadata |
+| `rag.Query` | The user's question as an object (text + history + context). Every RAG step takes one. | `RagService`: `new Query(question)` |
+| `rag.retrieval.search.DocumentRetriever` | Interface: `Query` → `List<Document>`. "Find passages for this question." | `HybridRetriever` — BM25 + nearText in Weaviate, merged with RRF |
+| `rag.postretrieval.document.DocumentPostProcessor` | Interface: `(Query, List<Document>)` → `List<Document>`. Filter, rerank or shorten the found passages. | `SystemOneFilter` (⚡ keep / drop), `SystemOneReranker` (⚡ sort by "answers", keep 3) |
+| `rag.generation.augmentation.ContextualQueryAugmenter` | Puts the passages into the prompt: `augment(Query, List<Document>)` → a new `Query` whose text is the full prompt. | `RagService` step 5, with our own template and a formatter that numbers the passages `[1]`, `[2]`… |
+| `chat.prompt.PromptTemplate` | A text with `{placeholders}` filled at run time. | `RagService.PROMPT` — `{context}` + `{query}`, rules: cite `[n]`, say "I don't know" |
+| `chat.model.ChatModel` / `openai.OpenAiChatModel` | The connection to an LLM. `OpenAiChatModel` speaks the OpenAI API, so it works with OpenRouter by changing the base URL. | `SystemTwoClient` builds one **per call** (key read from H2 at that moment) |
+| `openai.OpenAiChatOptions` | Settings for one model: base URL, API key, model name, timeout, retries. | `SystemTwoClient`: one model at a time, `maxRetries(0)` so we move on to the next model ourselves |
+| `chat.client.ChatClient` | The fluent API on top of a `ChatModel`: `.prompt().system(…).user(…).call()`. | `SystemTwoClient` — sends the augmented prompt |
+| `chat.model.ChatResponse` + `chat.metadata.Usage` | The answer text plus metadata: model used, prompt / completion tokens. | `SystemTwoClient` → 🔬 Trace (`tokens in / out`) |
+
+How they fit together, as Spring AI sees the chain:
+
+```java
+Query query = new Query(question);
+List<Document> found = retriever.retrieve(query);                          // DocumentRetriever       🗄️
+List<Document> kept  = filter.process(query, found);                       // DocumentPostProcessor   ⚡ keep / drop
+List<Document> best  = reranker.process(query, kept);                      // DocumentPostProcessor   ⚡ best 3
+Query prompt = ContextualQueryAugmenter.builder()
+        .promptTemplate(PROMPT).documentFormatter(RagService::numbered)
+        .build().augment(query, best);                                    // QueryAugmenter          ✍️
+ChatResponse answer = ChatClient.create(chatModel).prompt()
+        .system(SYSTEM_PROMPT).user(prompt.text()).call().chatResponse(); // ChatClient → OpenAiChatModel 🧠
+```
+
+`RagService` runs these **one by one, in plain code**, so each step can be timed, logged and drawn in 🔀 Data flow.
+For the first two steps it calls the richer twins of the interface methods — `HybridRetriever.search(…)` and
+`SystemOneFilter.score(…)` — which do the same work but also return the timings and the dropped passages for
+📚 Sources; `retrieve` and `process` stay so the classes plug into any Spring AI RAG setup.
+Spring AI's `RetrievalAugmentationAdvisor` wires the very same pieces (`DocumentRetriever` →
+`DocumentPostProcessor`s → `QueryAugmenter`) inside one `ChatClient` advisor; once you understand `RagService`, you
+understand that advisor.
+
+**Not used, on purpose:** `VectorStore` / `WeaviateVectorStore` (vector search only, no BM25 — so `HybridRetriever`
+uses the Weaviate client directly); `QueryTransformer` / `MultiQueryExpander` (rewriting the question — a good next
+step, kept out to stay simple); `ChatMemory` (chat history is saved by `ChatHistoryService` in H2 instead).
+
+## 8. Keys and configuration
 
 | Setting | Where | Secret? |
 |---|---|---|
@@ -209,14 +248,14 @@ All three services are required. The 💬 Chat page shows a pill for each (🟢 
 is not 🟢, a ⚠️ banner says which one and why, and the question box and **Ask** are **disabled**. There is no fallback
 model. If a service fails during a question, `SystemDownException` stops the pipeline and the same banner appears.
 
-## 8. Deploy
+## 9. Deploy
 
 - One **Docker** web service on **Render** (free plan): `Dockerfile` (Maven + Vaadin production build → JRE 25) and
   `render.yaml`. URL: <https://spring-ai-with-hybrid-search-and-system.onrender.com>.
 - Render's GitHub App redeploys on every push to `main`. No Render key is used by the app.
 - Free instances sleep after 15 minutes idle; the first visit after that takes about a minute.
 
-## 9. Glossary
+## 10. Glossary
 
 | Word | Meaning |
 |---|---|
