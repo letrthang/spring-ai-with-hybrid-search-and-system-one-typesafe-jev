@@ -321,7 +321,8 @@ public class ChatView extends Div implements HasDynamicTitle {
         if (notReady.stream().anyMatch(s -> s.reason().key().endsWith("noKey") || s.reason().key().endsWith("invalidKey"))) {
             banner.add(new RouterLink(Tr.t("chat.openKeys"), KeyManagementView.class));
         }
-        if (notReady.stream().anyMatch(s -> s.reason().key().endsWith("empty") || s.reason().key().endsWith("noCollection"))) {
+        if (notReady.stream().anyMatch(s -> s.reason().key().endsWith("empty") || s.reason().key().endsWith("noCollection")
+                || s.reason().key().endsWith("outdated"))) {
             banner.add(new RouterLink(Tr.t("chat.openSearch"), SearchDataView.class));
         }
     }

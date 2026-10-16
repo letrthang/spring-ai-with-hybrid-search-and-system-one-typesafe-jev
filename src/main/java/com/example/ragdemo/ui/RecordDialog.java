@@ -2,6 +2,7 @@ package com.example.ragdemo.ui;
 
 import com.example.ragdemo.weaviate.HybridRetriever.Hit;
 import com.example.ragdemo.weaviate.DemoDocCollection;
+import com.example.ragdemo.weaviate.Lang;
 import com.example.ragdemo.weaviate.WeaviateRecords;
 import com.example.ragdemo.weaviate.WeaviateRecords.StoredRecord;
 import com.vaadin.flow.component.Component;
@@ -48,6 +49,7 @@ public class RecordDialog extends AppDialog {
             new Row("body", "text", Hint.BM25),
             new Row("source", "text", Hint.SCHEMA),
             new Row("chunkNo", "int", Hint.SCHEMA),
+            new Row("lang", "text", Hint.SCHEMA),
             new Row("(vector)", "float[]", Hint.EMBEDDING));
 
     public RecordDialog(Hit hit, WeaviateRecords records, Component passage) {
@@ -111,6 +113,7 @@ public class RecordDialog extends AppDialog {
         values.put("body", shorten(hit.body(), 90));
         values.put("source", hit.source());
         values.put("chunkNo", hit.chunkNo() == null ? "—" : String.valueOf(hit.chunkNo()));
+        values.put("lang", Lang.of(hit.body()));
         values.put("(vector)", Tr.t("record.vectorInCard"));
         Div rows = new Div();
         rows.addClassNames("flex", "flex-col", "gap-2");

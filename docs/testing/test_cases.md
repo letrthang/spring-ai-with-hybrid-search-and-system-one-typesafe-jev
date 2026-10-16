@@ -10,9 +10,9 @@ its date and where it ran. ✅ passed · 🟠 partly / with a stand-in · ❌ fa
   for Weaviate Cloud's embeddings) + real Laya; System 2 a local stand-in. Used before the keys were available.
 - **Render** — <https://spring-ai-with-hybrid-search-and-system.onrender.com>.
 
-**Sample data** (94 passages): biotech basics (DNA, PCR, CRISPR, fermentation), physics basics (mechanics, electricity,
-heat and gases, light), the fish-farm handbook, "how this demo works", and office notes with an off-topic canteen menu
-and a planted prompt injection. All biotech and physics basics also in Vietnamese and Japanese (files 15–30).
+**Sample data** (1,500 passages = 500 × en / vi / ja, `sample-data/<lang>/`): biotech basics, physics basics,
+recirculating aquaculture (RAS) and the fish-farm handbook, "how this demo works", and office notes with an off-topic
+canteen menu and a planted prompt injection. Searches keep to the question's language.
 
 ## Step 0 — start
 
@@ -27,7 +27,7 @@ and a planted prompt injection. All biotech and physics basics also in Vietnames
 | TC-01 | No keys → chat disabled | Fresh start, open 💬 Chat | Pills: 🔴 Weaviate "no URL or API key", 🟢 System 1 "Laya is ready", 🔴 System 2 "no API key"; ⚠️ banner with 🔑 link; question box + Ask disabled |
 | TC-02 | Keys are masked and kept | Save a key; reload; restart the app | Field empty, placeholder `••••abcd`; kept after a **local** restart; **Render** forgets it on restart |
 | TC-03 | Wrong key | Save a wrong OpenRouter / Weaviate key | 🔴 "invalid API key — check 🔑 Key Management" |
-| TC-04 | Load sample data | 🔎 Search Data → 📥 Load | Collection dropped and re-created (HFresh), "94 passages loaded", 🟢 "94 passages" |
+| TC-04 | Load sample data | 🔎 Search Data → 📥 Load | Collection dropped and re-created (HFresh), "1500 passages loaded", 🟢 "1500 passages" |
 | TC-05 | Columns per mode | Empty query, then a query in BM25 / Vector / Hybrid | List: #, Title, Source · BM25: + BM25 rank · Vector: + vector rank · Hybrid: + both + RRF |
 | TC-06 | Meaning vs keyword | "why does warm water hold less oxygen" in the 3 modes | The Henry's-law passage first; Hybrid merges both lists |
 | TC-07 | Record details | Double-click a row | 📍 cluster, collection, object UUID + how it is made, REST address · 🧱 fields and indexes · 🧮 vector (1024 numbers) · { } raw JSON |

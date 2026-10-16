@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import io.weaviate.client6.v1.api.collections.CollectionHandle;
 import io.weaviate.client6.v1.api.collections.WeaviateObject;
 import io.weaviate.client6.v1.api.collections.query.FetchObjects;
+import io.weaviate.client6.v1.api.collections.query.Filter;
 import io.weaviate.client6.v1.api.collections.query.Metadata;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.rag.Query;
@@ -51,8 +52,11 @@ public class HybridRetriever implements DocumentRetriever {
                       Integer bm25Rank, Float bm25Score, Integer vectorRank, Float vectorDistance, Double rrfScore) {
     }
 
-    /** The result of one search, with the size and time of each half (for 🔬 Trace and 🔀 Data flow). */
-    public record Result(List<Hit> hits, int bm25Count, long bm25Ms, int vectorCount, long vectorMs) {
+    /**
+     * The result of one search, with the size and time of each half (for 🔬 Trace and 🔀 Data flow), and the
+     * language the search kept to ({@link Lang}).
+     */
+    public record Result(List<Hit> hits, int bm25Count, long bm25Ms, int vectorCount, long vectorMs, String lang) {
     }
 
     private final WeaviateConnector weaviate;
@@ -67,27 +71,37 @@ public class HybridRetriever implements DocumentRetriever {
         return search(query.text(), Mode.HYBRID, TOP_K).hits().stream().map(HybridRetriever::toDocument).toList();
     }
 
-    /** BM25 only, vector only, or both fused; at most {@code limit} hits. */
+    /**
+     * BM25 only, vector only, or both fused; at most {@code limit} hits — only passages in the language of
+     * {@code text} (the same topics exist in en / vi / ja; see {@link Lang}).
+     */
     public Result search(String text, Mode mode, int limit) {
+        String lang = Lang.of(text);
+        Filter sameLanguage = Filter.property("lang").eq(lang);
         return weaviate.call("search", client -> {
             CollectionHandle<Map<String, Object>> docs = client.collections.use(DemoDocCollection.NAME);
             try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
                 // the two searches run at the same time, each on its own virtual thread
                 Future<Timed> bm25 = mode == Mode.VECTOR ? null : pool.submit(timed(() ->
                         docs.query.bm25(text, q -> q.queryProperties(BM25_PROPERTIES).limit(CANDIDATES)
-                                .returnMetadata(Metadata.SCORE)).objects()));
+                                .filters(sameLanguage).returnMetadata(Metadata.SCORE)).objects()));
                 Future<Timed> vector = mode == Mode.BM25 ? null : pool.submit(timed(() ->
                         docs.query.nearText(text, q -> q.limit(CANDIDATES)
-                                .returnMetadata(Metadata.DISTANCE)).objects()));
+                                .filters(sameLanguage).returnMetadata(Metadata.DISTANCE)).objects()));
                 Timed b = get(bm25);
                 Timed v = get(vector);
                 List<Hit> hits = merge(b.objects, v.objects, mode);
-                log.debug("🗄️ search {} \"{}\": bm25 {} ({} ms), vector {} ({} ms) → {} merged", mode, text,
+                log.debug("🗄️ search {} \"{}\" [{}]: bm25 {} ({} ms), vector {} ({} ms) → {} merged", mode, text, lang,
                         b.objects.size(), b.ms, v.objects.size(), v.ms, hits.size());
                 return new Result(hits.subList(0, Math.min(limit, hits.size())),
-                        bm25 == null ? -1 : b.objects.size(), b.ms, vector == null ? -1 : v.objects.size(), v.ms);
+                        bm25 == null ? -1 : b.objects.size(), b.ms, vector == null ? -1 : v.objects.size(), v.ms, lang);
             }
         });
+    }
+
+    /** How many passages the collection holds (0 when it does not exist yet). */
+    public long count() {
+        return Math.max(0, weaviate.call("count", DemoDocCollection::count));
     }
 
     /** A page of passages in id order, no search (Search Data with an empty query). */

@@ -20,7 +20,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Loads {@code src/main/resources/sample-data/*.md} into the {@value DemoDocCollection#NAME} collection.
+ * Loads {@code src/main/resources/sample-data/{en,vi,ja}/*.md} into the {@value DemoDocCollection#NAME} collection —
+ * the same topics in English, Vietnamese and Japanese, one folder per language.
  *
  * <p><b>Chunking:</b> one passage per {@code ## section} of a Markdown file. That is the simplest splitter that keeps
  * each passage about one topic. (Spring AI's {@code TokenTextSplitter} splits by token count instead; for hand-written
@@ -35,8 +36,18 @@ public class SampleDataLoader {
 
     private static final Logger log = LoggerFactory.getLogger(SampleDataLoader.class);
 
-    /** One passage. */
+    /** Passages per insert call: Weaviate makes a vector for each one, so a few hundred at a time stays fast. */
+    static final int BATCH = 200;
+
+    /** One passage. {@code source} is "lang/file.md", e.g. "vi/02-pcr.md". */
     public record Chunk(String source, int chunkNo, String title, String body) {
+
+        /** "en", "vi" or "ja" — the folder the file is in. */
+        public String lang() {
+            int slash = source.indexOf('/');
+            return slash > 0 ? source.substring(0, slash) : Lang.EN;
+        }
+
 
         public String id() {
             return UUID.nameUUIDFromBytes((source + "#" + chunkNo).getBytes(StandardCharsets.UTF_8)).toString();
@@ -48,6 +59,7 @@ public class SampleDataLoader {
             p.put("body", body);
             p.put("source", source);
             p.put("chunkNo", chunkNo);
+            p.put("lang", lang());
             return p;
         }
     }
@@ -70,14 +82,17 @@ public class SampleDataLoader {
         return weaviate.call("load sample data", client -> {
             if (client.collections.exists(DemoDocCollection.NAME)) client.collections.delete(DemoDocCollection.NAME);
             DemoDocCollection.ensure(client, definition);
-            List<WeaviateObject<Map<String, Object>>> objects = new ArrayList<>();
-            for (Chunk chunk : chunks) {
-                objects.add(WeaviateObject.of(o -> o.uuid(chunk.id()).properties(chunk.properties())));
-            }
-            InsertManyResponse response = client.collections.use(DemoDocCollection.NAME).data.insertMany(objects);
-            if (!response.errors().isEmpty()) {
-                throw new IllegalStateException(response.errors().size() + " passages failed: "
-                        + response.errors().getFirst());
+            for (int from = 0; from < chunks.size(); from += BATCH) {
+                List<WeaviateObject<Map<String, Object>>> objects = new ArrayList<>();
+                for (Chunk chunk : chunks.subList(from, Math.min(from + BATCH, chunks.size()))) {
+                    objects.add(WeaviateObject.of(o -> o.uuid(chunk.id()).properties(chunk.properties())));
+                }
+                InsertManyResponse response = client.collections.use(DemoDocCollection.NAME).data.insertMany(objects);
+                if (!response.errors().isEmpty()) {
+                    throw new IllegalStateException(response.errors().size() + " passages failed: "
+                            + response.errors().getFirst());
+                }
+                log.info("📥   {} / {} passages inserted", Math.min(from + BATCH, chunks.size()), chunks.size());
             }
             return chunks.size();
         });
@@ -91,18 +106,29 @@ public class SampleDataLoader {
         });
     }
 
-    /** Every {@code sample-data/*.md} on the classpath, split into passages, files in name order. */
+    /** Every {@code sample-data/<lang>/*.md} on the classpath, split into passages, in language then file order. */
     public static List<Chunk> readSampleData() {
         try {
-            Resource[] files = new PathMatchingResourcePatternResolver().getResources("classpath:sample-data/*.md");
-            Arrays.sort(files, Comparator.comparing(Resource::getFilename));
+            Resource[] files = new PathMatchingResourcePatternResolver().getResources("classpath:sample-data/*/*.md");
+            Arrays.sort(files, Comparator.comparing(SampleDataLoader::source));
             List<Chunk> chunks = new ArrayList<>();
             for (Resource file : files) {
-                chunks.addAll(split(file.getFilename(), file.getContentAsString(StandardCharsets.UTF_8)));
+                chunks.addAll(split(source(file), file.getContentAsString(StandardCharsets.UTF_8)));
             }
             return chunks;
         } catch (IOException e) {
             throw new IllegalStateException("cannot read sample-data", e);
+        }
+    }
+
+    /** "vi/02-pcr.md": the language folder and the file name. */
+    static String source(Resource file) {
+        try {
+            String path = file.getURL().getPath();
+            String folder = path.substring(0, path.lastIndexOf('/'));
+            return folder.substring(folder.lastIndexOf('/') + 1) + "/" + file.getFilename();
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot read " + file, e);
         }
     }
 

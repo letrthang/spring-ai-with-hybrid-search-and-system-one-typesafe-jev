@@ -17,7 +17,8 @@ import java.util.Map;
  *   <li>{@code title}, {@code body}: searchable words → the <b>BM25</b> keyword index.</li>
  *   <li>A vector made by Weaviate's own vectorizer ({@code text2vec-weaviate}) from title + body → <b>nearText</b>.
  *       No embedding key or model on our side. Index type HFresh (what Weaviate Cloud requires).</li>
- *   <li>{@code source} (file name) and {@code chunkNo}: where the passage comes from.</li>
+ *   <li>{@code source} ("en/02-pcr.md") and {@code chunkNo}: where the passage comes from.</li>
+ *   <li>{@code lang} (en / vi / ja): searches keep to the question's language (see {@link Lang}).</li>
  * </ul>
  */
 public final class DemoDocCollection {
@@ -37,14 +38,16 @@ public final class DemoDocCollection {
     /** Tests pass another vectorizer (a local Weaviate has no access to Weaviate Cloud's embeddings). */
     static CollectionConfig definition(Map.Entry<String, VectorConfig> vectorizer) {
         return CollectionConfig.of(NAME, c -> c
-                .description("RAG demo passages (sample-data/*.md, one object per section)")
+                .description("RAG demo passages (sample-data/{en,vi,ja}/*.md, one object per section)")
                 .vectorConfig(vectorizer)
                 .properties(
                         Property.text("title", p -> p.tokenization(Tokenization.WORD).indexSearchable(true)),
                         Property.text("body", p -> p.tokenization(Tokenization.WORD).indexSearchable(true)),
                         Property.text("source", p -> p.tokenization(Tokenization.FIELD).indexFilterable(true)
                                 .indexSearchable(false)),
-                        Property.integer("chunkNo", p -> p.indexFilterable(true))));
+                        Property.integer("chunkNo", p -> p.indexFilterable(true)),
+                        Property.text("lang", p -> p.tokenization(Tokenization.FIELD).indexFilterable(true)
+                                .indexSearchable(false))));
     }
 
     /** Creates the collection if it does not exist. Returns true if it was created now. */

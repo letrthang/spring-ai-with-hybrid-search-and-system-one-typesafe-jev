@@ -105,10 +105,12 @@ persistent, so after a restart or redeploy you enter them again.
 
 ### Sample data
 
-📥 **Load sample data** (in 🔎 Search Data) loads 94 passages: biotech basics (DNA, PCR, CRISPR, fermentation),
-physics basics (forces, electricity, heat and gases, light), a fish-farm handbook, and office notes with an off-topic
-canteen menu and a planted prompt injection — for System 1 to drop. All biotech and physics basics are also in
-🇻🇳 Vietnamese and 🇯🇵 Japanese, so questions work in every page language.
+📥 **Load sample data** (in 🔎 Search Data) loads **1,500 passages — 500 each in 🇬🇧 English, 🇻🇳 Vietnamese and
+🇯🇵 Japanese** (`sample-data/en|vi|ja`): biotech basics (cells, enzymes, DNA, PCR, CRISPR, sequencing, vaccines…),
+physics basics (mechanics, waves, heat, electricity, optics, atoms…), recirculating aquaculture systems (RAS: filters,
+biofilter, oxygen, CO₂, pH, sensors, alarms…), and office notes with an off-topic canteen menu and a planted prompt
+injection — for System 1 to drop. Search keeps to the language of the question, so an English question gets English
+passages (one fact, not the same fact three times).
 
 ## System 1: default or your own
 
