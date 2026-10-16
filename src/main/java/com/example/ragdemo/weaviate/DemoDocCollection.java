@@ -81,7 +81,11 @@ public final class DemoDocCollection {
     /** How many learned answers (a small set: counted by fetching their ids). */
     static long learnedCount(WeaviateClient client) throws IOException {
         if (!client.collections.exists(NAME)) return 0;
-        return client.collections.use(NAME).query
+        var collection = client.collections.use(NAME);
+        boolean hasKind = collection.config.get().map(c -> c.properties().stream()
+                .anyMatch(p -> "kind".equals(p.propertyName()))).orElse(false);
+        if (!hasKind) return 0;   // loaded by an older version: nothing learned in it (health says "load again")
+        return collection.query
                 .fetchObjects(FetchObjects.of(f -> f.filters(learned()).limit(10_000))).objects().size();
     }
 
