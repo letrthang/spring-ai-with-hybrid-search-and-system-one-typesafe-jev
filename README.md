@@ -1,1 +1,1 @@
-# spring-ai-with-hybrid-search-and-system-one-typesafe-jev
+# Spring AI with Hybrid Search and System One Typesafe JEV
