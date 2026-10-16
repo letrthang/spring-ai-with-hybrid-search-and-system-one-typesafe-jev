@@ -78,6 +78,7 @@ public class ChatView extends Div implements HasDynamicTitle {
     private final ProgressBar progress = new ProgressBar();
     private final Map<RagService.Stage, Span> steps = new EnumMap<>(RagService.Stage.class);
     private final Div stepRow = new Div();
+    private final SystemMap systemMap = new SystemMap();
     private final Div examples = new Div();
     private final Grid<ChatSession> sessions = new Grid<>();
     private final SplitMasterDetail historyLayout = new SplitMasterDetail(sessions);
@@ -99,7 +100,7 @@ public class ChatView extends Div implements HasDynamicTitle {
 
         Paragraph intro = new Paragraph(Tr.t("chat.intro"));
         intro.addClassNames("rd-muted", "m-0");
-        add(InfoHint.with(new H2(Tr.t("chat.title")), Hint.RAG), intro, statusRow(), banner, conversationCard(), questionCard(), historyCard());
+        add(InfoHint.with(new H2(Tr.t("chat.title")), Hint.RAG), intro, statusRow(), banner, systemMap, conversationCard(), questionCard(), historyCard());
         banner.addClassNames("rd-warning", "p-3", "flex", "flex-wrap", "gap-2", "items-center");
         banner.setVisible(false);
         applyEnabled();
@@ -295,6 +296,7 @@ public class ChatView extends Div implements HasDynamicTitle {
     private void show(ServiceStatus status) {
         statuses.put(status.service(), status);
         pills.get(status.service()).show(status);
+        systemMap.show(status);
         applyEnabled();
     }
 
