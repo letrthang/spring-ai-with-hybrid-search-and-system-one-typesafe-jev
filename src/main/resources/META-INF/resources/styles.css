@@ -52,3 +52,85 @@
     border-radius: 0;
     background: var(--vaadin-background-color, light-dark(#ffffff, #14181d));
 }
+
+/* ---- 💬 chat bubbles ---- */
+.rd-messages {
+    max-height: min(60vh, 640px);
+    overflow-y: auto;
+    padding-right: 2px;
+}
+.rd-bubble {
+    border-radius: 14px;
+    max-width: min(100%, 860px);
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.rd-bubble-user {
+    align-self: flex-end;
+    background: light-dark(#e8f0fe, #1c2a44);
+    border: 1px solid light-dark(#c9dafc, #2c4170);
+}
+.rd-bubble-ai {
+    align-self: flex-start;
+    background: light-dark(#f6f8fa, #1a1f26);
+    border: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+}
+.rd-markdown p:first-child { margin-top: 0; }
+.rd-markdown p:last-child { margin-bottom: 0; }
+.rd-source {
+    border-radius: 10px;
+    border: 1px solid var(--aura-divider-color, light-dark(#e3e8ee, #2a3138));
+    background: var(--aura-surface, light-dark(#ffffff, #14181d));
+}
+.rd-source-unused { opacity: .72; }
+.rd-example { height: auto; min-height: var(--vaadin-button-height, 2.25rem); max-width: 100%; }
+.rd-example::part(label) { white-space: normal; text-align: left; }   /* long example questions wrap on a phone */
+
+/* ---- 🔀 data flow (sequence diagram) ---- */
+.rd-flow { overflow-x: auto; max-width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.rd-flow-canvas { min-width: 640px; }
+.rd-flow-heads { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.rd-flow-actor {
+    margin: 0 3px; padding: 6px; text-align: center; border-radius: 8px; font-size: 12px; font-weight: 700;
+    border: 1px solid color-mix(in srgb, var(--vaadin-text-color) 22%, transparent);
+    background: color-mix(in srgb, var(--vaadin-text-color) 5%, transparent);
+}
+.rd-flow-body { position: relative; padding: 4px 0 8px; }
+.rd-flow-life {
+    position: absolute; top: 0; bottom: 0; width: 0; pointer-events: none;
+    border-left: 1.5px dashed color-mix(in srgb, var(--vaadin-text-color) 26%, transparent);
+}
+.rd-flow-step > summary { display: block; list-style: none; cursor: pointer; border-radius: 6px; }
+.rd-flow-step > summary::-webkit-details-marker { display: none; }
+.rd-flow-step > summary:hover { background: color-mix(in srgb, var(--vaadin-text-color) 5%, transparent); }
+.rd-flow-step[open] > summary { background: color-mix(in srgb, var(--aura-accent-color, #3b82f6) 12%, transparent); }
+.rd-flow-row { position: relative; height: 50px; }
+.rd-flow-arrow { --tone: light-dark(#6d28d9, #c4b5fd); position: absolute; top: 24px; height: 0; border-top: 2px solid var(--tone); }
+.rd-flow-arrow::after {
+    content: ""; position: absolute; right: -1px; top: -6px;
+    border-left: 9px solid var(--tone); border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+}
+.rd-flow-rev::after { right: auto; left: -1px; border-left: 0; border-right: 9px solid var(--tone); }
+.rd-flow-return { --tone: light-dark(#15803d, #86efac); border-top-style: dashed; }
+.rd-flow-note { --tone: light-dark(#64748b, #94a3b8); }
+.rd-flow-self { top: 18px; height: 12px; border-radius: 0 6px 6px 0; border-right: 2px solid var(--tone); border-bottom: 2px solid var(--tone); }
+.rd-flow-self::after { right: auto; left: -1px; top: auto; bottom: -6px; border-left: 0; border-right: 9px solid var(--tone); }
+.rd-flow-label, .rd-flow-meta {
+    position: absolute; display: flex; justify-content: center; align-items: center; gap: 4px;
+    white-space: nowrap; pointer-events: none; min-width: 0;
+}
+.rd-flow-label { top: 2px; height: 18px; font-size: 11px; }
+.rd-flow-meta { top: 30px; height: 16px; font-size: 10px; color: var(--aura-secondary-text, #64748b); }
+.rd-flow-text, .rd-flow-meta > span {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 0 3px; border-radius: 4px;
+    background: color-mix(in srgb, var(--vaadin-background-color, #fff) 88%, transparent);
+}
+.rd-flow-n {
+    flex: none; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; font-size: 10px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: light-dark(#fff, #0b1220); background: light-dark(#334155, #cbd5e1);
+}
+.rd-flow-summary {
+    margin: 2px 8px 8px; padding: 6px 8px; font-size: 12px; border-radius: 6px; overflow-wrap: anywhere;
+    background: color-mix(in srgb, var(--vaadin-text-color) 5%, transparent);
+}
