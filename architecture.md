@@ -124,32 +124,43 @@ Each method misses something; the fused list gets both right. That is why the de
 
 ```
 src/main/java/com/example/ragdemo/
-├── RagDemoApplication.java      Spring Boot entry point
-├── keys/                        🔑 the two keys and the endpoints, in the H2 file DB
-│   ├── ApiSetting.java          one row: name → value
-│   └── KeyStore.java            typed getters; read on EVERY call (no cached keys)
-├── weaviate/                    🗄️ retrieval
-│   ├── WeaviateConnector.java   opens a client from KeyStore for one call
-│   ├── DemoDocCollection.java   the collection DemoDoc (title, body, source, chunkNo) + built-in vectorizer
-│   ├── SampleDataLoader.java    resources/sample-data/*.md → chunks → Weaviate
-│   ├── HybridRetriever.java     Spring AI DocumentRetriever: BM25 + nearText + RRF
-│   ├── RrfFusion.java           1/(60+rank), the whole fusion in one small class
-│   └── WeaviateHealth.java      🟢 / 🟡 empty / 🔴
-├── system1/                     ⚡ Laya
-│   ├── LayaClient.java          POST /demo/systemone (JDK HttpClient)
-│   ├── SystemOneFilter.java     Spring AI DocumentPostProcessor: score + keep/drop
-│   ├── SystemOneReranker.java   Spring AI DocumentPostProcessor: sort + top K
-│   └── SystemOneHealth.java     GET /health
-├── system2/                     🧠 OpenRouter
-│   ├── SystemTwoClient.java     Spring AI ChatModel per call, free-model fallback
-│   └── SystemTwoHealth.java     GET /models
-├── rag/                         🔗 the pipeline
-│   ├── RagService.java          steps 2–7 above, in order, one method each
-│   ├── FlowRecorder.java        collects FlowHop records for 🔀 Data flow
-│   ├── RagAnswer.java           text + sources + trace + flow
-│   └── SystemDownException.java a required service failed → stop
-├── chat/                        💬 history (ChatSession, ChatMessage, ChatHistoryService)
-└── ui/                          🖥️ MainLayout, ChatView, SearchDataView, KeyManagementView, DataFlowDialog
+├── RagDemoApplication.java        Spring Boot entry point; Aura theme, push, light/dark
+├── keys/                          🔑 the two keys and the endpoints, in the H2 file DB
+│   ├── ApiSetting.java            one row: name → value
+│   └── KeyStore.java              typed getters + defaults; read on EVERY call (no cached keys)
+├── weaviate/                      🗄️ retrieval
+│   ├── WeaviateConnector.java     the only place that opens a WeaviateClient (rebuilt when the key changes)
+│   ├── DemoDocCollection.java     the collection DemoDoc (title, body, source, chunkNo) + built-in vectorizer
+│   ├── SampleDataLoader.java      resources/sample-data/*.md → one passage per "## section" → Weaviate
+│   ├── HybridRetriever.java       Spring AI DocumentRetriever: BM25 + nearText in parallel + RRF
+│   ├── RrfFusion.java             1/(60+rank), the whole fusion in one small class
+│   └── WeaviateHealth.java        🟢 N passages / 🟡 empty / 🔴 down or bad key
+├── system1/                       ⚡ Laya
+│   ├── LayaClient.java            POST /demo/systemone: three yes/no questions → three probabilities
+│   ├── SystemOneFilter.java       Spring AI DocumentPostProcessor: score every passage, keep / drop
+│   ├── SystemOneReranker.java     Spring AI DocumentPostProcessor: sort the kept ones by "answers", best 3
+│   └── SystemOneHealth.java       GET /health
+├── system2/                       🧠 OpenRouter
+│   ├── SystemTwoClient.java       Spring AI OpenAiChatModel built per call, free models tried in order
+│   └── SystemTwoHealth.java       GET /key (OpenRouter) or /models — costs no tokens
+├── rag/                           🔗 the pipeline
+│   ├── RagService.java            steps 2–7 above, top to bottom
+│   ├── FlowRecorder.java          collects FlowHop records for 🔀 Data flow
+│   ├── RagAnswer.java             text + sources + trace + flow (+ failure)
+│   ├── ServiceStatus.java         🟢 / 🟡 / 🔴 + reason, for the pills
+│   ├── SystemDownException.java   a required service failed → stop
+│   └── Http.java                  the one JDK HttpClient (health checks, Laya)
+├── chat/                          💬 history in H2
+│   ├── ChatSession.java, ChatMessage.java (+ repositories)
+│   └── ChatHistoryService.java    saves each turn; the answer is kept as JSON (sources, trace, flow)
+└── ui/                            🖥️ Vaadin
+    ├── MainLayout.java            the page: header + left drawer with the 3 menus
+    ├── ChatView.java              💬 status pills, question, answers, 📂 History
+    ├── AnswerBubble.java          answer + 📚 Sources + 🔬 Trace + 🔀 Data flow button
+    ├── DataFlowDiagram.java       the sequence diagram, plain HTML/CSS
+    ├── SearchDataView.java        🔎 BM25 / Vector / Hybrid over Weaviate
+    ├── KeyManagementView.java     🔑 the keys, with 🧪 Test buttons
+    └── AppDialog.java, StatusPill.java, Background.java (virtual thread → UI.access)
 ```
 
 `RagService` calls the Spring AI building blocks **one by one, in plain code**, so each step can be timed and drawn in
