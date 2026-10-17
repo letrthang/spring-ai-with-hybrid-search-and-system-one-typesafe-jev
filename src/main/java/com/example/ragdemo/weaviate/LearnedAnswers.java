@@ -130,7 +130,8 @@ public class LearnedAnswers {
         return a != null && b != null && normalized(a).equals(normalized(b));
     }
 
-    static String normalized(String question) {
+    /** The question as its id sees it: lower case, single spaces, no end punctuation. */
+    public static String normalized(String question) {
         return question.strip().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ")
                 .replaceAll("[\\s?!.。？！]+$", "");
     }

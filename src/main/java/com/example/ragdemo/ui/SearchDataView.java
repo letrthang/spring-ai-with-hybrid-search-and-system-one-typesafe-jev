@@ -95,7 +95,7 @@ public class SearchDataView extends Div implements HasDynamicTitle {
 
         DatabaseCard databaseCard = new DatabaseCard(database);   // 💾 what the app saved in H2
         databaseCard.addClassName("shrink-0");
-        LearnedCard learnedCard = new LearnedCard(learned);       // 🧠 what the app learned (Weaviate)
+        LearnedCard learnedCard = new LearnedCard(learned, records);       // 🧠 what the app learned (Weaviate)
         learnedCard.addClassName("shrink-0");
         add(InfoHint.with(new H2(Tr.t("search.title")), Hint.WEAVIATE), intro, toolbar(), statusRow(), warning, results(),
                 learnedCard, databaseCard);
