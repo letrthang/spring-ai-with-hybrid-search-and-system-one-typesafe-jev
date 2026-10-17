@@ -271,6 +271,16 @@
     padding: 6px 0; max-width: calc(100% - 200px); pointer-events: none;
 }
 .rd-built-with { position: relative; z-index: 2; padding-right: 6px; }
+/* the running version, small and quiet, after ☰ (in the drawer on narrow screens, where the title needs the room) */
+.rd-version, .rd-version-drawer {
+    font-size: .72rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap; text-decoration: none;
+    color: var(--aura-secondary-text, #64748b); position: relative; z-index: 2;
+    padding: 2px 6px; border-radius: 999px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+}
+.rd-version:hover, .rd-version-drawer:hover { color: var(--vaadin-text-color); }
+.rd-version-drawer { display: none; align-self: flex-start; margin: auto 0 12px 16px; }
+/* below 900 px the centred title reaches the toggle: the version moves into the drawer */
+@media (max-width: 900px) { .rd-version { display: none; } .rd-version-drawer { display: inline-block; } }
 .rd-logo { height: 22px; width: auto; display: block; }
 .rd-logo-label { display: none; font-size: .8rem; font-weight: 600; color: var(--aura-secondary-text, #64748b); }
 /* four logos with names need room beside the centred title: names only on very wide screens, icons (with tooltips) below */
