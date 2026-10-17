@@ -6,7 +6,18 @@ the project uses [Semantic Versioning](https://semver.org/). Branches: `develop`
 
 ## [Unreleased]
 
-## [1.2.0] — 2026-10-18
+## [1.2.1] — 2026-10-17
+
+### Changed
+- **Release dates are UTC, and the release title takes its date from `CHANGELOG.md`** (#149). The heading
+  `## [x.y.z] — YYYY-MM-DD` is written as the UTC date; the workflow uses it for the GitHub release title and warns when
+  it is not today's UTC date. The 1.2.0 heading is corrected to 2026-10-17 (it ran 16:13–16:18 UTC).
+- **A release proves the new version is live** (#149). `/actuator/info` now shows the build info (`build.version`), and
+  the release workflow waits until the live app reports the release version, not only `/actuator/health` = UP.
+- **Fuller release notes** (#149): the CHANGELOG section, the pull requests since the previous release, what was
+  verified (test counts, deploy and live times in UTC, the workflow run), the commit and the compare link.
+
+## [1.2.0] — 2026-10-17
 
 ### Changed
 - **Releases are deployed by a workflow, not by a push** (#141). `.github/workflows/deploy.yml` (`workflow_dispatch`:

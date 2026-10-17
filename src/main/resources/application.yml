@@ -46,7 +46,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        # info = build info only (META-INF/build-info.properties: the pom version); the release workflow checks
+        # build.version there to prove the new version is live (#149)
+        include: health,info
 
 # Defaults for Key Management, used when nothing was saved there. Empty on purpose: NEVER put a key in this file.
 # Set them locally with environment variables, or in the git-ignored ./application-local.yml (see README → Run).
