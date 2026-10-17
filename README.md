@@ -102,7 +102,7 @@ is not persistent, so saved keys are lost on a restart or redeploy; the environm
 |---|---|
 | Laya / Hugging Face token | the default System 1 uses the public, keyless route |
 | OpenAI / Cohere embedding key | Weaviate's built-in vectorizer makes the vectors |
-| Render API key / Deploy Hook | Render deploys from GitHub on every push to `main` |
+| Render API key / Deploy Hook | Render deploys from GitHub on every push to the `release` branch |
 | Database password | H2 is a local file inside the app |
 
 ### Sample data
@@ -225,7 +225,7 @@ The repo is a Render **Blueprint**: [`render.yaml`](render.yaml) describes one f
 [`Dockerfile`](Dockerfile) builds the jar (Maven + Vaadin production bundle) and runs it on a plain JRE.
 
 1. Render dashboard → **New → Blueprint** → connect this GitHub repo → **Apply**. No API key or secret is needed.
-2. Render installs its GitHub App; from then on **every push to `main` redeploys** automatically.
+2. Render installs its GitHub App; from then on **every push to the `release` branch redeploys** automatically.
 3. Open the service URL → 🔑 Key Management → enter the Weaviate URL + Admin key and the OpenRouter key →
    🔎 Search Data → 📥 Load sample data → 💬 Chat.
 
@@ -239,9 +239,8 @@ Good to know about the free plan:
 
 Current version: **1.0.0** — see [`CHANGELOG.md`](CHANGELOG.md) and the
 [GitHub releases](https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases).
-The project follows **git flow**: features branch from `develop` and come back by pull request; a `release/x.y.z`
-branch is merged into `main` (which Render deploys) and tagged `vx.y.z`; urgent fixes go `hotfix/x.y.z` → `main` and
-`develop`.
+Branches: **`develop`** (daily work, by pull request) → after testing, **`main`** → for a new release, **`release`**,
+which Render deploys and which is tagged `vx.y.z`. Details in [`GITHUB_COMMIT_RULE.md`](GITHUB_COMMIT_RULE.md).
 
 ## Licence
 
