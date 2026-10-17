@@ -10,7 +10,7 @@ RUN ./mvnw -B -q -DskipTests package
 # ---- run: a plain JRE ----
 FROM eclipse-temurin:25-jre
 WORKDIR /app
-COPY --from=build /app/target/ragdemo-1.0-SNAPSHOT.jar app.jar
+COPY --from=build /app/target/ragdemo-*.jar app.jar
 # Render's free plan has 512 MB for the whole container. Budget: heap 50 % (~256 MB) + metaspace (~150 MB) + JIT
 # code cache (48 MB, C1 only) + direct buffers for Weaviate's gRPC client (48 MB). Without the caps the total can pass
 # 512 MB and the container is killed with no Java error. Out of memory → exit at once (logged), Render restarts it.
