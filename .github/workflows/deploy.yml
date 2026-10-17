@@ -7,6 +7,7 @@
 # (see GITHUB_COMMIT_RULE.md "A new release"). Render's own Auto-Deploy is OFF, so this is the only deploy path.
 # Requires the repo secret RENDER_DEPLOY_HOOK_URL (Render → the service → Settings → Deploy Hook).
 # Never run it to "test" it: every run deploys production.
+# All dates and times are UTC: the release date is the CHANGELOG heading `## [x.y.z] — YYYY-MM-DD` (a UTC date).
 name: Release & Deploy to Render
 
 on:
@@ -81,9 +82,20 @@ jobs:
           if [ "$POM_VERSION" != "$VERSION" ]; then
             echo "::error::pom.xml version on release is '$POM_VERSION', not '$VERSION'. Merge the release PR first."; exit 1
           fi
-          if ! grep -Eq "^## \[$(printf '%s' "$VERSION" | sed 's/\./\\./g')\]" CHANGELOG.md; then
+          HEADING=$(grep -E "^## \[$(printf '%s' "$VERSION" | sed 's/\./\\./g')\]" CHANGELOG.md | head -n 1 || true)
+          if [ -z "$HEADING" ]; then
             echo "::error::CHANGELOG.md has no '## [$VERSION]' section."; exit 1
           fi
+          # the release date (UTC) comes from the heading: "## [x.y.z] — YYYY-MM-DD"
+          RELEASE_DATE=$(printf '%s' "$HEADING" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -n 1 || true)
+          if [ -z "$RELEASE_DATE" ]; then
+            echo "::error::The heading '$HEADING' has no date. Write '## [$VERSION] — YYYY-MM-DD' (UTC)."; exit 1
+          fi
+          TODAY_UTC=$(date -u +%Y-%m-%d)
+          if [ "$RELEASE_DATE" != "$TODAY_UTC" ]; then
+            echo "::warning::CHANGELOG date $RELEASE_DATE is not today's UTC date $TODAY_UTC. The release title uses $RELEASE_DATE."
+          fi
+          echo "RELEASE_DATE=$RELEASE_DATE" >> "$GITHUB_ENV"
           if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
             echo "::error::Tag $TAG already exists. Never reuse a version."; exit 1
           fi
@@ -97,7 +109,18 @@ jobs:
           cache: maven
 
       - name: Build and test
-        run: ./mvnw -B clean verify
+        run: |
+          set -euo pipefail
+          ./mvnw -B clean verify
+          # totals for the release notes, from the surefire / failsafe XML reports
+          read -r T F E S C < <(cat target/surefire-reports/TEST-*.xml target/failsafe-reports/TEST-*.xml 2>/dev/null \
+            | grep -o '<testsuite [^>]*>' \
+            | awk '{ for (k = 1; k <= NF; k++) { split($k, a, "\""); n = a[2] + 0;
+                       if ($k ~ /^tests=/) t += n; else if ($k ~ /^failures=/) f += n;
+                       else if ($k ~ /^errors=/) e += n; else if ($k ~ /^skipped=/) s += n }
+                     c++ } END { print t+0, f+0, e+0, s+0, c+0 }')
+          echo "TESTS_LINE=$T tests, $F failures, $E errors, $S skipped ($C test classes)" >> "$GITHUB_ENV"
+          echo "🧪 $T tests, $F failures, $E errors, $S skipped ($C classes)"
 
       # ─── 5. Deploy through Render's deploy hook ───
       - name: Trigger Render deploy
@@ -106,36 +129,73 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsS -X POST "$HOOK" -o /dev/null
+          echo "DEPLOY_TS=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_ENV"
           echo "🚀 Render deploy triggered for $GITHUB_SHA"
 
-      # ─── 6. Wait until the live app is up again ───
-      # The free plan builds the Docker image (~5–10 min) and cold-starts; the old instance may answer meanwhile,
-      # so wait a few minutes first, then require /actuator/health = UP.
-      - name: Wait for the live app
+      # ─── 6. Wait until the live app runs the NEW version ───
+      # The free plan builds the Docker image (~5–10 min) and cold-starts, and the old instance keeps answering
+      # meanwhile, so "UP" alone proves nothing: wait until /actuator/info reports build.version = the release version.
+      # Releases up to 1.2.0 had no /actuator/info; if it is missing, fall back to /actuator/health = UP.
+      - name: Wait for the live app to run the new version
         run: |
           set -uo pipefail
-          sleep 240
-          for i in $(seq 1 60); do
-            BODY=$(curl -s -m 60 "$LIVE_URL/actuator/health" || true)
-            if printf '%s' "$BODY" | grep -q '"status":"UP"'; then
-              echo "✅ $LIVE_URL is UP (attempt $i)"; exit 0
+          sleep 120
+          for i in $(seq 1 70); do
+            INFO=$(curl -s -m 60 "$LIVE_URL/actuator/info" || true)
+            HEALTH=$(curl -s -m 60 "$LIVE_URL/actuator/health" || true)
+            if printf '%s' "$INFO" | grep -q "\"version\":\"$VERSION\"" && printf '%s' "$HEALTH" | grep -q '"status":"UP"'; then
+              echo "LIVE_TS=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_ENV"
+              echo "LIVE_CHECK=\`/actuator/info\` reports build.version $VERSION and \`/actuator/health\` is UP" >> "$GITHUB_ENV"
+              echo "✅ $LIVE_URL runs $VERSION and is UP (attempt $i)"; exit 0
             fi
-            echo "… not UP yet (attempt $i)"; sleep 20
+            if ! printf '%s' "$INFO" | grep -q '"build"' && printf '%s' "$HEALTH" | grep -q '"status":"UP"' && [ "$i" -ge 15 ]; then
+              echo "LIVE_TS=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_ENV"
+              echo "LIVE_CHECK=\`/actuator/health\` is UP (this build exposes no \`/actuator/info\`, so the version was not checked)" >> "$GITHUB_ENV"
+              echo "::warning::$LIVE_URL has no /actuator/info; accepted /actuator/health = UP without a version check."; exit 0
+            fi
+            echo "… not on $VERSION yet (attempt $i)"; sleep 20
           done
-          echo "::error::$LIVE_URL did not report UP in time. Check the Render dashboard."; exit 1
+          echo "::error::$LIVE_URL did not run $VERSION in time. Check the Render dashboard (Events / Logs)."; exit 1
 
-      # ─── 7. Tag + GitHub release, notes from CHANGELOG ───
+      # ─── 7. Tag + GitHub release: notes = CHANGELOG section + PRs + what was verified + build facts ───
       - name: Tag and publish the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          awk -v v="$VERSION" '
-            index($0, "## [" v "]") == 1 { f = 1; next }
-            f && /^## \[/ { exit }
-            f { print }
-          ' CHANGELOG.md > notes.md
-          printf '\nLive app version: %s — %s\n' "$VERSION" "$LIVE_URL" >> notes.md
+          REPO_URL="https://github.com/$GITHUB_REPOSITORY"
+          RUN_URL="$REPO_URL/actions/runs/$GITHUB_RUN_ID"
+          PREV_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --exclude-drafts --exclude-pre-releases \
+                       --json tagName -q '.[0].tagName' || true)
+          {
+            awk -v v="$VERSION" '
+              index($0, "## [" v "]") == 1 { f = 1; next }
+              f && /^## \[/ { exit }
+              f { print }
+            ' CHANGELOG.md
+            echo
+            if [ -n "$PREV_TAG" ]; then
+              echo "### Pull requests since $PREV_TAG"
+              gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$TAG" \
+                -f target_commitish="$GITHUB_SHA" -f previous_tag_name="$PREV_TAG" -q .body \
+                | sed -e '/^## What.s Changed/d' -e '/^\*\*Full Changelog\*\*/d' -e '/^$/d'
+              echo
+            fi
+            echo "### Verified"
+            echo "- **Build and tests:** \`./mvnw clean verify\` on JDK 25 (Temurin) — $TESTS_LINE."
+            echo "- **Deploy:** Render deploy hook called at $DEPLOY_TS; live at $LIVE_TS — $LIVE_CHECK."
+            echo "- **Release run:** [$GITHUB_WORKFLOW #$GITHUB_RUN_NUMBER]($RUN_URL), started by @$GITHUB_ACTOR (environment \`$TARGET_ENV\`)."
+            echo
+            echo "### Build"
+            echo "- Commit: [\`${GITHUB_SHA:0:8}\`]($REPO_URL/commit/$GITHUB_SHA) on \`release\`."
+            if [ -n "$PREV_TAG" ]; then
+              echo "- Previous release: [$PREV_TAG]($REPO_URL/releases/tag/$PREV_TAG) · Full changelog: [$PREV_TAG...$TAG]($REPO_URL/compare/$PREV_TAG...$TAG)"
+            fi
+            echo "- All dates and times are UTC."
+            echo
+            echo "Live app version: $VERSION — $LIVE_URL"
+          } > notes.md
+          cat notes.md
           gh release create "$TAG" --target "$GITHUB_SHA" \
-            --title "$TAG — $(date -u +%Y.%m.%d)" --notes-file notes.md
-          echo "🏁 Released $TAG: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
+            --title "$TAG — ${RELEASE_DATE//-/.}" --notes-file notes.md
+          echo "🏁 Released $TAG: $REPO_URL/releases/tag/$TAG"
