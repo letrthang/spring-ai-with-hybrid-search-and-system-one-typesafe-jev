@@ -5,19 +5,29 @@
 
 ## 1. What the app does
 
-A one-page Spring Boot + Vaadin web app. You type a question in **💬 Chat**. The app looks up passages in a
+A Spring Boot + Vaadin web app with three pages. You type a question in **💬 Chat**. The app looks up passages in a
 **Weaviate** database in two ways (keywords and meaning), asks a small fast model (**System 1**) which passages are
 really useful, and asks a big model (**System 2**) to write the answer from those passages only. The 🔀 **Data flow**
-dialog then shows every step that happened, with timings. **🔎 Search Data** lets you look inside Weaviate, and
-**🔑 Key Management** is where you enter the two API keys the demo needs.
+dialog then shows every step that happened, with timings.
+
+On top of that pipeline:
+
+- **🧠 Self-learning** — an answer that ⚡ System 1 verifies is saved; a very similar question later reuses it (♻️) without
+  calling System 2.
+- **🛠 Agentic mode** — a switch: System 2 gets tools (search, learned answers, chat history) and decides itself what to
+  look up, as often as it needs.
+- **🔎 Search Data** — look inside Weaviate (BM25 / vector / hybrid, record details, 🧱 schema), the 🧠 learned answers
+  and the app's own 💾 H2 database.
+- **🔑 Key Management** — use your own keys instead of the site owner's defaults (kept in memory, never shown).
+- 🌐 English, Tiếng Việt, 日本語 — every text, every ℹ️ lesson, and 1,000 sample passages per language.
 
 ## 2. The big picture
 
 ```mermaid
 flowchart LR
     B[🖥️ Browser<br/>Vaadin UI] <--> APP[☕ Spring Boot app]
-    APP <--> H2[(💾 H2 file DB<br/>keys + chat history)]
-    APP <-->|BM25 + nearText| W[(🗄️ Weaviate Cloud<br/>collection DemoDoc)]
+    APP <--> H2[(💾 H2 file DB<br/>chat history + model list)]
+    APP <-->|BM25 + nearText| W[(🗄️ Weaviate Cloud<br/>DemoDoc: passages + learned answers)]
     APP <-->|POST /demo/systemone| S1[⚡ System 1<br/>Laya on Hugging Face]
     APP <-->|OpenAI-compatible chat| S2[🧠 System 2<br/>OpenRouter free model]
 ```
@@ -26,8 +36,8 @@ flowchart LR
 |---|---|---|
 | 🖥️ Browser | the Vaadin page: a left drawer with 💬 Chat, 🔎 Search Data, 🔑 Key Management | — |
 | ☕ Spring Boot app | all the logic; runs on Render (Docker) or `localhost:8080` | — |
-| 💾 H2 file DB | `./data/ragdemo` — saved keys and chat history | — |
-| 🗄️ Weaviate Cloud | the passages, with a keyword index (BM25) and vectors | ✅ URL + Admin key |
+| 💾 H2 file DB | `./data/ragdemo` — chat history and the System 2 model list (**never a key**) | — |
+| 🗄️ Weaviate Cloud | one collection `DemoDoc`: 3,000 passages (`kind = passage`) and the learned answers (`kind = learned`), with a keyword index (BM25) and vectors | ✅ URL + Admin key |
 | ⚡ System 1 | **Laya**, a *decision* model: answers yes/no questions with a probability | ❌ public route |
 | 🧠 System 2 | an OpenRouter **free** chat model: writes text | ✅ API key |
 
@@ -41,8 +51,11 @@ sequenceDiagram
     participant S1 as ⚡ System 1 (Laya)
     participant S2 as 🧠 System 2 (OpenRouter)
 
-    U->>A: 1. question
+    U->>A: question
     Note over A: 0. all three services 🟢? else chat is disabled
+    A->>W: 1. ♻️ a learned answer to this question?
+    W-->>A: closest learned question + distance
+    Note over A: same / close and ⚡ says it fits → answer at once (no System 2)
     par 2. retrieve, two ways
         A->>W: BM25 (keywords)
         W-->>A: top 20 by keyword score
@@ -56,13 +69,18 @@ sequenceDiagram
         S1-->>A: three probabilities
     end
     Note over A: keep the good ones, sort by "answers"
-    A->>S2: 5. question + kept passages
-    S2-->>A: 6. answer with [1] [2] citations
+    A->>S2: 5–6. question + kept passages
+    S2-->>A: answer with [1] [2] citations
+    A->>S1: 7. ⚡ verify the answer (answers · grounded · injection)
+    A->>W: 8. 🧠 learn it (kind = learned) if it passed
     A-->>U: answer + 📚 Sources + 🔬 Trace + 🔀 Data flow
 ```
 
-1. **Ask.** The user types a question and presses **Ask**. The chat box is disabled while the app works.
-2. **Retrieve — two ways at once.**
+1. **Ask — and ♻️ reuse?** The user types a question and presses **Ask** (the chat box is disabled while the app
+   works). First the app looks for a learned answer to the same or a very similar question (see *Self-learning* below);
+   if ⚡ System 1 agrees it fits, that answer is returned in ~1.5 s and steps 2–8 are skipped.
+2. **Retrieve — two ways at once.** Only passages in the question's language (en / vi / ja, by script) and only
+   `kind = passage` objects.
    - **BM25** finds passages that share the *words* of the question (good for exact names and codes such as `PCR` or `Cas9`).
    - **nearText** finds passages with the same *meaning*, even with other words ("warm water holds less oxygen" ≈ "gas solubility falls as temperature rises").
      Weaviate turns the text into a vector itself (its built-in vectorizer), so we need no embedding model.
@@ -82,8 +100,11 @@ sequenceDiagram
    in the [Spring blog post](https://spring.io/blog/2026/10/02/spring-ai-modular-rag-typesafe-jev), done by Laya.
 5. **Augment.** Spring AI's `ContextualQueryAugmenter` puts the kept passages, numbered `[1]`, `[2]`…, into the prompt
    with the instruction "answer only from this context".
-6. **Generate.** System 2 writes the answer. If the first free model fails, the next one in the list is tried.
-7. **Show and save.** The answer, its sources, the trace and the data flow are shown and saved to the chat history.
+6. **Generate.** System 2 writes the answer. If the first free model fails (busy, down, slow), the next one in the
+   list is tried; a wrong key stops at once.
+7. **Verify.** ⚡ System 1 checks the answer itself (see *Self-learning*).
+8. **Learn, show and save.** A verified answer is saved as a learned object; the answer, its sources, the trace and
+   the data flow are shown and saved to the chat history (H2).
 
 ### What the user sees under each answer
 
@@ -92,6 +113,7 @@ sequenceDiagram
 | 📚 **Sources — n used of m** | every passage found: BM25 rank, vector rank, RRF score, System 1's three scores, kept or dropped |
 | 🔬 **Trace** | the time of each step, which model answered, tokens used |
 | 🔀 **Data flow** | a dialog with the sequence diagram above, drawn from what really happened, with ms on each arrow |
+| 🧠 / ♻️ / 🛠 chips | learned ✅ (with System 1's scores) or why not · reused (distance, score) · agent rounds and tool calls |
 
 ### Self-learning: ♻️ reuse first, 🧠 learn last
 
@@ -108,6 +130,14 @@ supports it (≥ 0.55) and it gives no orders to an AI (injection < 0.30) — `A
 = the question, plus `answer`, `model`, `sources`, scores). Every passage search, list and count filters
 `kind = passage`, so generated text never becomes a "fact"; 📥 Load sample data rebuilds the collection and clears them.
 If System 1 is busy, the answer is simply not learned (it is still shown).
+
+**Reuse distance 0.45.** Measured on Weaviate Cloud's vectorizer (Snowflake arctic-embed-l-v2.0, 1-bit RQ), a
+question is never near 0 from itself: identical 0.33, other case / no "?" 0.38–0.40, "What is a RAS?" 0.48–0.57, other
+topics 0.75–0.84. So the same question (case, spaces and end punctuation ignored) always matches, a close one matches
+below 0.45, and ⚡ System 1 still has to say the stored answer answers the new question (≥ 0.70). The learned object's
+UUID is made from `lang|question`, so asking the same question again replaces it instead of adding a duplicate.
+🔎 Search Data → 🧠 Learned answers lists them (⛶ full screen, 🗑 forget all); double-click or right click → 🔍 Details
+shows the answer, its scores, the passages it came from and the stored Weaviate object.
 
 ### 🛠 Agentic mode: System 2 picks its tools
 
@@ -163,20 +193,24 @@ Each method misses something; the fused list gets both right. That is why the de
 ```
 src/main/java/com/example/ragdemo/
 ├── RagDemoApplication.java        Spring Boot entry point; Aura theme, push, light/dark
-├── keys/                          🔑 the two keys and the endpoints, in the H2 file DB
-│   ├── ApiSetting.java (+ repository)  one row: name → value
-│   └── KeyStore.java              typed getters; defaults from application.yml / env vars;
-│                                  read on EVERY call (no cached keys)
+├── keys/                          🔑 the keys and endpoints of the three services
+│   ├── ApiSetting.java (+ repository)  one H2 row: name → value — only the System 2 model list
+│   └── KeyStore.java              typed in 🔑 → memory only (never H2, never shown) → else env defaults
+│                                  (RAGDEMO_*) → else built-in; read on EVERY call (no cached keys)
 ├── weaviate/                      🗄️ retrieval
-│   ├── WeaviateConnector.java     the only place that opens a WeaviateClient (rebuilt when the key changes)
-│   ├── DemoDocCollection.java     the collection DemoDoc (title, body, source, chunkNo) + built-in vectorizer, HFresh
-│   ├── SampleDataLoader.java      resources/sample-data/*.md → one passage per "## section" → Weaviate
+│   ├── WeaviateConnector.java     the only place that opens a WeaviateClient (rebuilt when the key changes);
+│   │                              closes it only for a broken connection, retries a stale one once
+│   ├── DemoDocCollection.java     DemoDoc: title, body, source, chunkNo, lang, kind (passage | learned) + answer,
+│   │                              model, sources, scores; built-in vectorizer on title + body, HFresh index
+│   ├── SampleDataLoader.java      sample-data/<lang>/*.md (in file-number order) → one passage per "## section"
+│   │                              → drops the collection, inserts in batches of 200
 │   ├── HybridRetriever.java       Spring AI DocumentRetriever: BM25 + nearText in parallel + RRF
 │   ├── RrfFusion.java             1/(60+rank), the whole fusion in one small class
 │   ├── WeaviateRecords.java       one stored object by UUID (fields, vector, times) for 🧾 record details
 │   ├── WeaviateSchema.java        GET /v1/schema/DemoDoc, read live for the 🧱 Schema dialog
 │   ├── Lang.java                  en / vi / ja of a question (by script) → searches keep to that language
-│   ├── LearnedAnswers.java        🧠 kind = learned objects: closest question · save (one per question) · list · forget
+│   ├── LearnedAnswers.java        🧠 kind = learned objects: closest question · same question? · save (one per
+│   │                              lang + question) · list · count · forget
 │   └── WeaviateHealth.java        🟢 N passages / 🟡 empty or loaded by an older version / 🔴 down or bad key
 ├── system1/                       ⚡ Laya
 │   ├── LayaClient.java            POST /demo/systemone via RestClient: yes/no questions about a text → probabilities
@@ -192,8 +226,9 @@ src/main/java/com/example/ragdemo/
 ├── rag/                           🔗 the pipeline
 │   ├── RagService.java            the steps above, top to bottom (+ ♻️ reuse first, 🧠 learn last); logs every step
 │   ├── RagAgent.java              🛠 agentic mode: the tool loop and its 3 @Tool methods (search · learned · H2)
-│   ├── FlowRecorder.java          collects FlowHop records for 🔀 Data flow
-│   ├── RagAnswer.java             text + sources + trace + flow (+ failure, ♻️ reuse, 🧠 learning)
+│   ├── FlowRecorder.java          collects FlowHop records for 🔀 Data flow (lifelines: User, App, Weaviate,
+│   │                              System 1, System 2, + 💾 H2 when the agent reads it)
+│   ├── RagAnswer.java             text + sources + trace + flow (+ failure, ♻️ reuse, 🧠 learning, 🛠 agent)
 │   ├── Msg.java                   a text as key + arguments, translated only when shown (see i18n below)
 │   ├── ServiceStatus.java         🟢 / 🟡 / 🔴 + reason, for the pills
 │   ├── SystemDownException.java   a required service failed → stop
@@ -202,18 +237,23 @@ src/main/java/com/example/ragdemo/
 │   └── DatabaseBrowser.java       tables from INFORMATION_SCHEMA, pages of rows, parameterised UPDATE / DELETE
 ├── chat/                          💬 history in H2
 │   ├── ChatSession.java, ChatMessage.java (+ repositories)
-│   └── ChatHistoryService.java    saves each turn; the answer is kept as JSON (sources, trace, flow)
+│   └── ChatHistoryService.java    saves each turn; the answer is kept as JSON (sources, trace, flow);
+│                                  recentQuestions() for the 🛠 agent (read-only)
 └── ui/                            🖥️ Vaadin
     ├── MainLayout.java            the page: header (title, ocean-wave border, logos, 🌐 language) + left drawer
-    ├── ChatView.java              💬 status pills, 🧭 diagram, question, progress steps, answers, 📂 History
-    ├── SystemMap.java             server side of <rd-system-map> (src/main/frontend/rd-system-map.ts, Lit)
-    ├── AnswerBubble.java          answer + 📚 Sources + 🔬 Trace + 🔀 Data flow button
-    ├── DataFlowDiagram.java       the sequence diagram, plain HTML/CSS
+    ├── ChatView.java              💬 status pills, 🧭 diagram, question + 🛠 Agentic mode switch, progress steps,
+    │                              answers, 📂 History
+    ├── SystemMap.java             server side of <rd-system-map> (src/main/frontend/rd-system-map.ts, Lit):
+    │                              live status, ♻️ reuse / 🧠 learn branches, 🛠 tool loop when agentic
+    ├── AnswerBubble.java          answer + 🛠 / ♻️ / 🧠 chips + 📚 Sources + 🔬 Trace + 🔀 Data flow button
+    ├── DataFlowDiagram.java       the sequence diagram, plain HTML/CSS (5 lifelines, 6 with 💾 H2)
     ├── SearchDataView.java        🔎 BM25 / Vector / Hybrid over Weaviate, master-detail with DetailCard
     ├── RecordDialog.java          🧾 one Weaviate record, laid out like the Weaviate console (JSON / fields)
     ├── SchemaDialog.java          🧱 the collection schema, live from /v1/schema
-    ├── LearnedCard.java           🧠 the learned answers (lazy grid, 🗑 forget all)
-    ├── DatabaseCard.java          💾 H2 tables: read, edit, delete a row
+    ├── LearnedCard.java           🧠 the learned answers (lazy grid, ⛶ full screen, 🗑 forget all)
+    ├── LearnedDialog.java         🔍 one learned answer: scores, its passages, the stored object (double-click /
+    │                              right click → Details…)
+    ├── DatabaseCard.java          💾 H2 tables: read, edit, delete a row, ⛶ full screen
     ├── SplitMasterDetail.java     grid | card with a draggable splitter
     ├── KeyManagementView.java     🔑 the keys (never shown), 🧪 Test, ● online badges (StatusBadge)
     ├── ModelPicker.java           🧩 choose and order the System 2 models
@@ -222,9 +262,13 @@ src/main/java/com/example/ragdemo/
     ├── ErrorHandling.java         every UI error logged + shown; a closed browser is not an error
     └── AppDialog.java, DetailCard.java, StatusPill.java, Background.java (virtual thread → UI.access)
 
+src/main/frontend/
+└── rd-system-map.ts               🧭 the "How it works" diagram, a Lit web component
+
 src/main/resources/
 ├── application.yml                defaults (keys empty → env vars or git-ignored ./application-local.yml), logging
-├── sample-data/{en,vi,ja}/*.md    500 passages per language: biotech, physics, RAS / fish farm, demo, office notes
+├── sample-data/{en,vi,ja}/*.md    110 files × 10 sections = 1,000 passages per language (the same files, translated):
+│                                  biotech, physics, RAS / fish farm (incl. AI monitoring), demo, office notes
 ├── vaadin-i18n/translations.properties      🇬🇧 English (default)
 ├── vaadin-i18n/translations_vi.properties   🇻🇳 Tiếng Việt
 ├── vaadin-i18n/translations_ja.properties   🇯🇵 日本語
@@ -285,22 +329,99 @@ step, kept out to stay simple); `ChatMemory` (chat history is saved by `ChatHist
 `ToolCallingAdvisor` (ChatClient's built-in tool loop — `RagAgent` runs the loop itself to time, draw and limit every
 call).
 
+### 7.1 Which Spring AI classes handle each feature
+
+| Feature | Spring AI classes | Our classes |
+|---|---|---|
+| 🔗 **Fixed RAG pipeline** (search → ⚡ → 🧠) | `Document`, `Query`, `DocumentRetriever`, `DocumentPostProcessor`, `ContextualQueryAugmenter`, `PromptTemplate`, `ChatClient` | `HybridRetriever`, `SystemOneFilter`, `SystemOneReranker`, `RagService` |
+| 🧠 **System 2 + model fallback** | `OpenAiChatModel`, `OpenAiSetup` (the OpenAI SDK clients), `OpenAiChatOptions` (model per call), `ChatResponse`, `Usage` | `SystemTwoClient` |
+| 🧠♻️ **Self-learning** | `Document` (the cited passages travel as Documents and are saved with the answer) — the cache itself is not a Spring AI feature | `AnswerVerifier`, `LearnedAnswers`, `RagService.tryReuse / learn` |
+| 🛠 **Agentic mode** (tool calling) | `@Tool`, `@ToolParam`, `ToolCallbacks`, `ToolCallback`, `ToolCallResultConverter`, `Prompt`, `SystemMessage`, `UserMessage`, `AssistantMessage.ToolCall`, `ToolResponseMessage`, `ChatModel.call(Prompt)` | `RagAgent`, `SystemTwoClient.step` |
+
+**🔗 Fixed pipeline** — our classes implement Spring AI's RAG interfaces, so they also plug into
+`RetrievalAugmentationAdvisor`:
+
+```java
+public class HybridRetriever implements DocumentRetriever {           // Query → List<Document>
+    public List<Document> retrieve(Query query) { … BM25 + nearText in parallel, RRF … }
+}
+public class SystemOneFilter implements DocumentPostProcessor {       // keep / drop with Laya's three scores
+    public List<Document> process(Query query, List<Document> documents) { … }
+}
+Query prompt = ContextualQueryAugmenter.builder()
+        .promptTemplate(PROMPT)                                       // PromptTemplate: {context} + {query}
+        .documentFormatter(RagService::numbered)                     // "[1] title\nbody"
+        .build().augment(new Query(question), best);
+```
+
+**🧠 System 2 + model fallback** — one pair of OpenAI SDK clients per base URL + key (closed when the key changes),
+the model chosen per call; we loop over the models ourselves (`maxRetries(0)`):
+
+```java
+OpenAIClient sync = OpenAiSetup.setupSyncClient(baseUrl, key, …, PER_MODEL_TIMEOUT, 0 /* retries */, …);
+ChatModel model = OpenAiChatModel.builder().openAiClient(sync).openAiClientAsync(async).build();
+
+for (String m : keys.system2Models()) {                               // 429 / 5xx / timeout → next model
+    ChatResponse r = ChatClient.create(model).prompt().system(system).user(user)
+            .options(OpenAiChatOptions.builder().model(m)).call().chatResponse();
+    Usage usage = r.getMetadata().getUsage();                         // tokens in / out → 🔬 Trace
+}
+```
+
+**🧠♻️ Self-learning** — Spring AI has no "answer cache", so this part is ours: Laya (`AnswerVerifier`) checks the
+answer, the Weaviate client stores it (`LearnedAnswers`, `kind = learned`). Spring AI's role is the `Document`: the
+passages System 2 was given are Documents, and their text, title and source are saved with the answer, so a reused
+answer shows its original 📚 Sources.
+
+**🛠 Agentic mode** — tools are plain Java methods; Spring AI turns them into JSON-described callbacks:
+
+```java
+final class Tools {
+    @Tool(name = "search_passages", resultConverter = PlainText.class,
+          description = "Search the knowledge base … System 1 checks every passage … Returns the kept passages")
+    public String searchPassages(@ToolParam(description = "What to search for") String query) { … }
+    // find_learned_answer(question), recent_questions(limit)
+}
+List<ToolCallback> callbacks = List.of(ToolCallbacks.from(tools));   // name + description + JSON schema each
+```
+
+The loop runs in `RagAgent`, against the **`ChatModel`** — so the model only *asks* for tools and the app decides
+when and how to run them (`ChatClient` would run them itself through its `ToolCallingAdvisor`):
+
+```java
+List<Message> conversation = new ArrayList<>(List.of(new SystemMessage(SYSTEM_PROMPT), new UserMessage(question)));
+for (int round = 1; ; round++) {
+    Prompt prompt = new Prompt(conversation, OpenAiChatOptions.builder().model(m).toolCallbacks(callbacks).build());
+    AssistantMessage reply = chatModel.call(prompt).getResult().getOutput();        // SystemTwoClient.step
+    if (!reply.hasToolCalls()) return reply.getText();                              // the final answer
+    conversation.add(reply);
+    List<ToolResponse> results = new ArrayList<>();
+    for (AssistantMessage.ToolCall call : reply.getToolCalls()) {                   // timed, drawn, limited (≤ 6)
+        results.add(new ToolResponse(call.id(), call.name(), byName.get(call.name()).call(call.arguments())));
+    }
+    conversation.add(ToolResponseMessage.builder().responses(results).build());
+}
+```
+
+`ToolCallResultConverter`: the default converter JSON-encodes a returned `String` (`"\"[1] …\\n…\""`); `PlainText`
+hands the text to the model as written. A model without tool support answers 404 on OpenRouter and is skipped like a
+busy one.
+
 ## 8. Keys and configuration
 
 | Setting | Where | Secret? |
 |---|---|---|
-| Weaviate URL + Admin API key | 🔑 Key Management → H2 | key: yes |
-| OpenRouter API key | 🔑 Key Management → H2 | yes |
+| Weaviate URL + Admin API key | 🔑 Key Management → **memory only** · default: env `RAGDEMO_WEAVIATE_URL`, `RAGDEMO_WEAVIATE_KEY` | key: yes |
+| OpenRouter API key | 🔑 Key Management → **memory only** · default: env `RAGDEMO_OPENROUTER_KEY` | yes |
 | OpenRouter models (free by default) | 🔑 Key Management → H2 | no |
-| System 2 base URL (default OpenRouter), System 1 URL (default public Laya) | 🔑 Key Management → Advanced | no |
+| System 2 base URL (default OpenRouter), System 1 URL + key (default the public, keyless Laya) | 🔑 Key Management → Advanced → memory only | key: yes |
 
-- Every API call reads its key from H2 **at the moment of the call**, so a newly saved key works at once.
-- Keys are never logged, never shown in full (only `••••abcd`), never put in a trace hop, never committed.
-- Order of a key: **saved in 🔑 Key Management** → else **environment variable** (`RAGDEMO_WEAVIATE_URL`,
-  `RAGDEMO_WEAVIATE_KEY`, `RAGDEMO_OPENROUTER_KEY`, set on Render under Environment) → else not set. 🗑 Clear deletes
-  the saved one, so the environment default applies again.
-- On Render the disk is not persistent: a restart, redeploy or wake-up starts with an empty DB → saved keys are gone,
-  the environment defaults remain.
+- Order of a value: **typed in 🔑 Key Management** (held in memory: never written to H2, gone after a restart) →
+  else the **environment default** (set on Render under Environment; locally in the git-ignored
+  `./application-local.yml`) → else the built-in default. 🗑 Clear forgets the typed one, so the default applies again.
+- Every API call asks `KeyStore` **at the moment of the call**, so a newly typed key works at once.
+- Keys are never logged, never shown (not even in part — the page only says "🔒 default (set by the site owner)" or "🔑 your key is in use (hidden)"), never
+  put in a trace hop, never committed. The owner's default Weaviate host is masked too.
 
 ### When a service is down
 
@@ -313,6 +434,9 @@ model. If a service fails during a question, `SystemDownException` stops the pip
 - One **Docker** web service on **Render** (free plan): `Dockerfile` (Maven + Vaadin production build → JRE 25) and
   `render.yaml`. URL: <https://spring-ai-with-hybrid-search-and-system.onrender.com>.
 - Render's GitHub App redeploys on every push to `main`. No Render key is used by the app.
+- Releases follow **git flow** (from 1.0.0): features → `develop`; `release/x.y.z` → `main` + tag `vx.y.z`; hotfixes
+  `hotfix/x.y.z` from `main`. So the live site runs the latest release; the H2 disk is wiped on each deploy (chat
+  history), Weaviate is not.
 - Free instances sleep after 15 minutes idle; the first visit after that takes about a minute.
 
 ## 10. Glossary
@@ -329,3 +453,6 @@ model. If a service fails during a question, `SystemDownException` stops the pip
 | **Jev / Laya** | System 1 decision models with the same `/v1/systemone` API; this demo uses Laya |
 | **Rerank** | re-order the found passages by a better score than the search gave |
 | **Augment** | add the passages to the prompt |
+| **Learned answer** | an answer ⚡ System 1 verified, saved in Weaviate (`kind = learned`) and reused for the same or a close question |
+| **Tool calling** | the LLM answers with "call this function with these arguments" instead of text; the app runs it and sends the result back |
+| **Agent** | an LLM that decides its own steps with tools, in a loop, until it can answer |
