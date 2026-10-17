@@ -2,17 +2,86 @@
 > **Do NOT auto-commit or auto-push unless the developer explicitly asks the bot to do so.**
 > The bot must always ask the developer for confirmation before committing and pushing code.
 
+> [!IMPORTANT]
+> **The bot creates a new release version only when the developer asks for it.**
+> Merging into `develop` or `main` is not a release: no PR `main` → `release`, no version change, no tag and no GitHub
+> release unless the developer explicitly asks for one. See [Git flow](#git-flow-since-v100).
+
 # GitHub Commit and Push Rules for Bot
 
-When the bot is asked to commit or push code changes to the GitHub repository, it must follow these rules in order (must do from step 1 to step 7):
+When the bot is asked to commit or push code changes to the GitHub repository, it must follow these rules in order (must do from step 1 to step 7). The repo follows [git flow](#git-flow-since-v100): everyday work goes to **`develop`**, not `main`.
 
 1. Try to use GitHub MCP tools first to access and operate on the remote GitHub repository.
-2. Start from `main`, then pull the latest changes from the remote repository into local. The bot must stop and report to the developer if it detects conflicts between remote changes and local working files that it cannot safely resolve.
-3. From `main`, create a new branch using `feat/*`, `bugfix/*` or `docs/*`, and commit code changes only on that new branch.
-4. Create a pull request (PR) to merge the new branch into `main`.
-5. Merge PR into `main`. Need not wait for approval from other developers. But can stop and report if there are many conflicts that the bot determines it cannot safely resolve.
-6. After the PR is merged successfully, switch local repo back to `main` and delete the local `feat/*` or `bugfix/*` branch.
-7. From `main` branch, pull the latest changes to sync up with the remote repository.
+2. Start from `develop`, then pull the latest changes from the remote repository into local. The bot must stop and report to the developer if it detects conflicts between remote changes and local working files that it cannot safely resolve.
+3. From `develop`, create a new branch using `feat/*`, `bugfix/*` or `docs/*`, and commit code changes only on that new branch.
+4. Create a pull request (PR) to merge the new branch into `develop`.
+5. Merge PR into `develop` (squash). Need not wait for approval from other developers. But can stop and report if there are many conflicts that the bot determines it cannot safely resolve.
+6. After the PR is merged successfully, switch local repo back to `develop` and delete the local `feat/*`, `bugfix/*` or `docs/*` branch.
+7. From `develop` branch, pull the latest changes to sync up with the remote repository, build and run the app locally and test the merged change. When the test passes, create a PR `develop` → `main` and merge it (merge commit) — see [Daily work](#daily-work).
+
+## Git flow (since v1.0.0)
+
+Three long-lived branches, in this order: **`develop` → `main` → `release`**.
+
+> [!IMPORTANT]
+> **The bot creates a new release version only when the developer asks for it.** Without that request the bot never
+> opens a PR `main` → `release`, never changes the version in `pom.xml`, never creates a tag and never publishes a
+> GitHub release — however many changes are merged into `develop` and `main`.
+
+### Branches
+
+| Branch | What it holds | Gets its changes from |
+|---|---|---|
+| `develop` | **Daily work.** Its `pom.xml` version is the next one, as a snapshot (e.g. `1.1.0-SNAPSHOT`). | PRs from `feat/*`, `bugfix/*`, `docs/*` (squash) |
+| `main` | **Tested work**: what passed the local test on `develop`. Not deployed. | PR `develop` → `main` (merge commit) |
+| `release` | **Production.** Render auto-deploys every push to `release`, so it is what the live site runs. | PR `main` → `release` (merge commit) — **only when the developer asks for a new release** |
+| `feat/*`, `bugfix/*`, `docs/*` | One issue each, from `develop`. Deleted after the merge. | — |
+
+Never commit directly to `develop`, `main` or `release`: every change arrives by PR. Use a **merge commit** (not squash)
+for `develop` → `main` and `main` → `release`: the three branches then share their history, so the next PR between
+them carries only the new commits (squash would make every later PR conflict).
+
+### Daily work
+
+1. Steps 1–7 above: a `feat/*`, `bugfix/*` or `docs/*` branch from `develop`, a PR into `develop`, then build, run and
+   test the merged `develop` locally.
+2. After that test passes: **PR `develop` → `main`**, merge commit. Check out `main`, pull, and check it builds and runs.
+3. That is all — nothing goes to `release` and nothing is live until the developer asks for a new release. Say so when
+   the developer asks about the live site.
+
+### A new release — only when the developer asks
+
+1. PR into `develop` (e.g. `docs/release-x.y.z`): `pom.xml` version `x.y.z` (drop `-SNAPSHOT`), a
+   `## [x.y.z] — YYYY-MM-DD` section in `CHANGELOG.md` (move the *[Unreleased]* items into it). Build and test:
+   `./mvnw clean package` (all tests) and `docker build .` (Render builds the Dockerfile).
+2. PR `develop` → `main` (merge commit); check out `main`, run it locally and test it.
+3. **PR `main` → `release`** (merge commit). Render deploys `release` by itself; check that the deploy is live and the
+   live site works.
+4. Tag and GitHub release on the head of `release`, in the format of
+   [iattendance v5.4](https://github.com/letrthang/iattendance/releases/tag/v5.4):
+   ```bash
+   gh release create vx.y.z --target release --title "vx.y.z — YYYY.MM.DD" --notes-file notes.md
+   ```
+   - No assets, not a draft.
+   - Notes: `### Features` / `### Fixes` / `### Security` / `### Reliability` / `### Documentation` as they apply;
+     each bullet starts with a **bold lead sentence**, then why and how in plain words, and a "Verified: …" note
+     where something was tested. Last line: `Live app version: x.y.z — <live URL>`.
+5. PR into `develop`: `pom.xml` → the next `-SNAPSHOT`, a new `## [Unreleased]` section in `CHANGELOG.md`; then
+   `develop` → `main` as usual.
+
+### Urgent fix on the live site (hotfix) — only when the developer asks
+
+1. `hotfix/*` from `release`, the fix and its test → PR into `release` (Render deploys it).
+2. Then PR `release` → `main` and `main` → `develop`, so the fix is not lost. A version change, tag and GitHub release
+   only if the developer asks for them.
+
+### Render
+
+- `render.yaml`: `branch: release`, `autoDeploy: true`.
+- The live service must use the same branch: Render dashboard → the service → **Settings → Build & Deploy → Branch =
+  `release`** (a Blueprint sync applies `render.yaml` too).
+- History: v1.0.0 was released from a `release/1.0.0` branch (tag `v1.0.0`); the single `release` branch starts at
+  that tag. Git cannot hold `release` and `release/…` branches together, so never create `release/*` branches.
 
 ## What the Bot May Stage — NEVER `git add -A`
 
@@ -214,9 +283,10 @@ Apply labels at creation time.
 
 ## Notes
 
-- Do not commit directly to `main`. Always create PR to merge into `main`.
+- Do not commit directly to `develop`, `main` or `release`. Always create a PR: feature branches → `develop`, then `develop` → `main` after the test, and `main` → `release` only for a new release.
+- Create a new release version (PR `main` → `release`, version, tag, GitHub release) **only when the developer asks**.
 - Keep branch names descriptive and scoped to one task.
 - Ensure PR status checks pass before merge.
 - Do not commit `package.json` and `package-lock.json`.
-- Always delete local branch after merge PR into `main` branch successful.
-- switch back to `main` branch and pull latest changes after merge PR into `main` successful.
+- Always delete the local feature branch after its PR is merged (never `develop`, `main` or `release`).
+- Switch back to the branch the PR went into (`develop`, or `main`) and pull the latest changes after the merge.

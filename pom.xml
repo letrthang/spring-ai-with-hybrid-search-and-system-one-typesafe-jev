@@ -5,7 +5,7 @@
 
     <groupId>com.example</groupId>
     <artifactId>ragdemo</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
     <name>RAG demo: System 1 + System 2 + Weaviate hybrid search</name>
 
@@ -120,6 +120,14 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <!-- META-INF/build-info.properties: the pom version, shown in the header (AppVersion) -->
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <!-- *IT tests (a real Weaviate in Docker) run with the unit tests; they skip themselves without Docker -->

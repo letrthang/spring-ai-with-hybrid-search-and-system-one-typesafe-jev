@@ -433,10 +433,10 @@ model. If a service fails during a question, `SystemDownException` stops the pip
 
 - One **Docker** web service on **Render** (free plan): `Dockerfile` (Maven + Vaadin production build → JRE 25) and
   `render.yaml`. URL: <https://spring-ai-with-hybrid-search-and-system.onrender.com>.
-- Render's GitHub App redeploys on every push to `main`. No Render key is used by the app.
-- Releases follow **git flow** (from 1.0.0): features → `develop`; `release/x.y.z` → `main` + tag `vx.y.z`; hotfixes
-  `hotfix/x.y.z` from `main`. So the live site runs the latest release; the H2 disk is wiped on each deploy (chat
-  history), Weaviate is not.
+- Render's GitHub App redeploys on every push to the **`release`** branch (`render.yaml`: `branch: release`). No Render
+  key is used by the app.
+- Branches: `develop` (daily work) → after testing → `main` → for a new release → `release` (production, tagged
+  `vx.y.z`). The H2 disk is wiped on each deploy (chat history); Weaviate is not.
 - Free instances sleep after 15 minutes idle; the first visit after that takes about a minute.
 
 ## 10. Glossary

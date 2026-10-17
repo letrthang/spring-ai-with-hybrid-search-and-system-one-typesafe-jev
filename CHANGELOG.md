@@ -1,8 +1,22 @@
 # Changelog
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
-the project uses [Semantic Versioning](https://semver.org/). Releases follow git flow: features go to `develop`, a
-`release/x.y.z` branch goes to `main` (which Render deploys) and is tagged `vx.y.z`.
+the project uses [Semantic Versioning](https://semver.org/). Branches: `develop` (daily work) → `main` (tested) →
+`release` (production, deployed by Render, tagged `vx.y.z`).
+
+## [1.1.0] — 2026-10-17
+
+### Added
+- **The header shows the version the web app runs** — a small `vX.Y.Z` pill on the left, after ☰, linked to that
+  version's release notes (in the drawer below 900 px, where the centred title needs the room). It is read from the
+  build (`pom.xml` → Spring Boot `build-info`), so the live site always shows the release it runs.
+
+### Changed
+- **Deployment follows `develop` → `main` → `release`.** Daily work goes to `develop`; after testing, `develop` →
+  `main`; a new release is a PR `main` → `release`, and **Render now deploys the `release` branch** (`render.yaml`
+  and the service setting). A new release is made only when the developer asks (`GITHUB_COMMIT_RULE.md`).
+- **README says up front that the app supports an AI agentic mode** — tagline, badges, "Two ways to answer" (fixed
+  pipeline vs 🛠 agentic mode) and the 5-minute demo.
 
 ## [1.0.0] — 2026-10-17
 
@@ -72,4 +86,5 @@ Live: <https://spring-ai-with-hybrid-search-and-system.onrender.com>
 - 85 automated tests, incl. a real Weaviate in Docker (`WeaviateIT`, 3,000 passages), a real H2, fake HTTP servers for
   Laya and OpenRouter, and a scripted model for the agent.
 
+[1.1.0]: https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases/tag/v1.1.0
 [1.0.0]: https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases/tag/v1.0.0
