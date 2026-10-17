@@ -7,6 +7,12 @@
 > Merging into `develop` or `main` is not a release: no PR `main` → `release`, no version change, no tag and no GitHub
 > release unless the developer explicitly asks for one. See [Git flow](#git-flow-since-v100).
 
+> [!CAUTION]
+> **Only the release workflow deploys.** Render's Auto-Deploy is **Off**: a push or a merge into `release` deploys
+> nothing. Production changes only when `.github/workflows/deploy.yml` is run by hand on `release`, and the bot runs it
+> only when the developer asks for a release. **Never run it to test it** — every run deploys the live app. See
+> [Deployment process](#deployment-process-the-release-workflow).
+
 # GitHub Commit and Push Rules for Bot
 
 When the bot is asked to commit or push code changes to the GitHub repository, it must follow these rules in order (must do from step 1 to step 7). The repo follows [git flow](#git-flow-since-v100): everyday work goes to **`develop`**, not `main`.
@@ -22,6 +28,17 @@ When the bot is asked to commit or push code changes to the GitHub repository, i
 ## Git flow (since v1.0.0)
 
 Three long-lived branches, in this order: **`develop` → `main` → `release`**.
+
+```text
+ feat/* ─┐
+ bugfix/*├─(PR, squash)──▶ develop ──(PR, merge commit,──▶ main ──(PR, merge commit,──▶ release
+ docs/*  ┘                 daily work    after local test)  tested     only when asked)  production branch
+                                                                                          │
+                                       gh workflow run deploy.yml --ref release -f version=x.y.z  (by hand)
+                                                                                          ▼
+                                       verify → build + test → Render deploy hook → health UP → tag vx.y.z + GitHub release
+ hotfix/* ◀── from release ──(PR)──▶ release ──▶ run the workflow ──▶ then PR release → main → develop
+```
 
 > [!IMPORTANT]
 > **The bot creates a new release version only when the developer asks for it.** Without that request the bot never
@@ -64,7 +81,8 @@ them carries only the new commits (squash would make every later PR conflict).
    gh run list --repo letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev --workflow deploy.yml --limit 1
    ```
    **Tell the developer the run is started, with its link** (`https://github.com/<repo>/actions/runs/<id>`), then
-   watch it (`gh run watch <id>`). The workflow checks the ref (`release`), the `pom.xml` version, the CHANGELOG section
+   watch it (`gh run watch <id>`) — details, failures and rollback in
+   [Deployment process](#deployment-process-the-release-workflow). The workflow checks the ref (`release`), the `pom.xml` version, the CHANGELOG section
    and that the tag is new; runs `./mvnw clean verify`; calls the Render deploy hook (secret `RENDER_DEPLOY_HOOK_URL`);
    waits for `/actuator/health` = UP; then creates the tag and the GitHub release **itself**, with the notes taken
    from the `## [x.y.z]` section of `CHANGELOG.md`. Never run it to test it: every run deploys production.
@@ -83,15 +101,99 @@ them carries only the new commits (squash would make every later PR conflict).
 2. Then PR `release` → `main` and `main` → `develop`, so the fix is not lost. A version change, tag and GitHub release
    only if the developer asks for them.
 
-### Render
+## Deployment process (the release workflow)
 
-- `render.yaml`: `branch: release`, `autoDeploy: false`. **Auto-Deploy must be OFF in the dashboard too** (Settings →
-  Build & Deploy → Auto-Deploy = No): `.github/workflows/deploy.yml` is the only deploy path, through the service's
-  Deploy Hook, stored as the repo secret `RENDER_DEPLOY_HOOK_URL` (set by the developer; never print it).
-- The live service must use the same branch: Render dashboard → the service → **Settings → Build & Deploy → Branch =
-  `release`** (a Blueprint sync applies `render.yaml` too).
-- History: v1.0.0 was released from a `release/1.0.0` branch (tag `v1.0.0`); the single `release` branch starts at
-  that tag. Git cannot hold `release` and `release/…` branches together, so never create `release/*` branches.
+**One way to production:** `.github/workflows/deploy.yml` ("Release & Deploy to Render"), started by hand with
+`workflow_dispatch` on the `release` branch. Nothing else deploys: Render's Auto-Deploy is off and the workflow has no
+push trigger. Added in #141 (2026-10-17).
+
+### Inputs
+
+| Input | Required | Default | Meaning |
+|---|---|---|---|
+| `version` | yes | — | `x.y.z`; must equal the `pom.xml` version on `release` and have a `## [x.y.z]` section in `CHANGELOG.md` |
+| `tag` | no | `v<version>` | the git tag and GitHub release to create; must not exist yet |
+| `environment` | no | `production` | the target; `production` is the only one today |
+
+Pass every parameter the developer gives in the release request as these inputs. There is **no manual approval
+step**: the run goes straight through.
+
+### Run it and report it
+
+```bash
+gh workflow run deploy.yml --repo letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev \
+  --ref release -f version=x.y.z
+gh run list --repo letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev --workflow deploy.yml --limit 1
+gh run watch <run-id> --repo letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev
+```
+
+1. Right after `gh workflow run`, **tell the developer the workflow is triggered, with the run link**
+   (`https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/actions/runs/<run-id>`).
+2. Watch it to the end and report the result: success with the release link, or the failed step and why.
+
+### What the workflow does
+
+| # | Step | Stops the run when… | Production touched? |
+|---|---|---|---|
+| 1 | Check ref, inputs and secret | not on `release`; `version` not `x.y.z`; secret `RENDER_DEPLOY_HOOK_URL` missing | no |
+| 2 | Checkout `release` (full history) | — | no |
+| 3 | Check pom version, CHANGELOG and tag | `pom.xml` ≠ `version`; no `## [x.y.z]` in `CHANGELOG.md`; the tag exists | no |
+| 4 | JDK 25 + `./mvnw -B clean verify` | a test or the build fails | no |
+| 5 | **Trigger Render deploy** (POST to the deploy hook) | the hook call fails | **yes, from here** |
+| 6 | Wait for the live app: 4 min, then `/actuator/health` = `UP` (up to ~20 min more; the free plan builds the image and cold-starts) | the app never reports UP | yes |
+| 7 | Tag `vx.y.z` on the deployed commit + GitHub release, notes = the `## [x.y.z]` CHANGELOG section + `Live app version: x.y.z — <live URL>` | `gh release create` fails | — |
+
+Only one deploy runs at a time (`concurrency: deploy-render`). The workflow needs `contents: write` to tag.
+
+### When a run fails
+
+- **Steps 1–4 failed** (nothing deployed): fix the cause on `develop` (or the release PR), bring it to `main` and
+  `release` by PR as usual, then run the workflow again with the same version. Nothing to roll back.
+- **Step 5 failed** (hook call): check the secret and the Render service (dashboard → Settings → Deploy Hook); run
+  again. Nothing was deployed.
+- **Step 6 failed** (not UP in time): open the Render dashboard → the service → **Events / Logs** for that deploy.
+  - Still building or starting → wait, check `<live URL>/actuator/health` by hand; once it is UP, finish step 7 by
+    hand (below).
+  - The deploy failed → Render keeps the previous version running. Fix the cause, then release again (same version
+    if no tag was created).
+- **Step 7 failed** (deployed, not tagged): create the tag and release by hand on the deployed commit:
+  `gh release create vx.y.z --target <sha> --title "vx.y.z — YYYY.MM.DD" --notes-file notes.md`.
+- **Never** re-run with a version whose tag already exists: bump the patch version instead.
+
+### Rollback
+
+- **Fastest:** Render dashboard → the service → **Events** → the last good deploy → **Rollback**. It redeploys that
+  image; nothing in git changes. Tell the developer, then fix forward with a hotfix.
+- **Fix forward:** `hotfix/*` from `release` → PR into `release` → run the workflow with the next patch version →
+  PR `release` → `main` → `develop`.
+
+### After every deploy
+
+- `<live URL>/actuator/health` → `{"status":"UP"}`.
+- The app opens and its header shows the new version (`AppVersion`, from `build-info`).
+- The GitHub release `vx.y.z` exists and is marked **Latest**.
+- Then step 5 of [A new release](#a-new-release--only-when-the-developer-asks): `develop` → the next `-SNAPSHOT`.
+
+### Render settings
+
+- Live URL: <https://spring-ai-with-hybrid-search-and-system.onrender.com> (service
+  `spring-ai-with-hybrid-search-and-system-one-typesafe-jev`, Docker, free plan).
+- `render.yaml`: `branch: release`, `autoDeploy: false`, `healthCheckPath: /actuator/health`.
+- Dashboard → Settings → Build & Deploy: **Branch = `release`**, **Auto-Deploy = Off** (set by the developer on
+  2026-10-18). If Auto-Deploy is ever on again, a merge into `release` deploys by itself and the workflow then deploys a
+  second time — turn it back off.
+- Deploy Hook: dashboard → Settings → Deploy Hook, stored as the repo secret **`RENDER_DEPLOY_HOOK_URL`** (GitHub →
+  Settings → Secrets and variables → Actions). Set by the developer; never print it. If it is regenerated in Render,
+  update the secret.
+- Runtime keys (`RAGDEMO_*`) are Render environment variables, never in the repo.
+
+### History
+
+- v1.0.0 was released from a `release/1.0.0` branch (tag `v1.0.0`); the single `release` branch starts at that tag.
+  Git cannot hold `release` and `release/…` branches together, so never create `release/*` branches.
+- v1.0.0 – v1.1.2: Render auto-deployed every push to `release`; tags and GitHub releases were made by hand.
+- 2026-10-17 / 18 (#141): the release workflow became the only deploy path; Auto-Deploy off. v1.2.0 is the first
+  release deployed by the workflow.
 
 ## What the Bot May Stage — NEVER `git add -A`
 
@@ -295,6 +397,7 @@ Apply labels at creation time.
 
 - Do not commit directly to `develop`, `main` or `release`. Always create a PR: feature branches → `develop`, then `develop` → `main` after the test, and `main` → `release` only for a new release.
 - Create a new release version (PR `main` → `release`, version, tag, GitHub release) **only when the developer asks**.
+- Deploy only by running `.github/workflows/deploy.yml` on `release` (with the developer's parameters), and report the run link. Never run it to test it.
 - Keep branch names descriptive and scoped to one task.
 - Ensure PR status checks pass before merge.
 - Do not commit `package.json` and `package-lock.json`.

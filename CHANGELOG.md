@@ -6,10 +6,16 @@ the project uses [Semantic Versioning](https://semver.org/). Branches: `develop`
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-10-18
+
 ### Changed
 - **Releases are deployed by a workflow, not by a push** (#141). `.github/workflows/deploy.yml` (`workflow_dispatch`:
   `version`, `tag`, `environment`) builds and tests the `release` branch, deploys it through Render's deploy hook, waits
   until the live app is UP, then tags `vx.y.z` and publishes the GitHub release. Render's Auto-Deploy is off.
+
+### Documentation
+- **The deployment process is written down** in `GITHUB_COMMIT_RULE.md`: the release workflow's inputs and steps, what
+  to do when a step fails, rollback through Render, the checks after a deploy, and the Render settings (Auto-Deploy off).
 
 ## [1.1.2] — 2026-10-17
 
