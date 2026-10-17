@@ -4,6 +4,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 the project uses [Semantic Versioning](https://semver.org/). Releases follow git flow: features go to `develop`, a
 `release/x.y.z` branch goes to `main` (which Render deploys) and is tagged `vx.y.z`.
 
+## [Unreleased]
+
 ## [1.0.0] — 2026-10-17
 
 The first release of the RAG demo: Spring AI hybrid search on Weaviate, ⚡ System 1 (Laya) as a typed decision filter,
