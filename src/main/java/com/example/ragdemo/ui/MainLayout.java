@@ -21,14 +21,14 @@ import java.util.Locale;
  *
  * <p>The header title sits in the centre; along the header's bottom border two slow wave lines drift like an ocean
  * swell. Pure CSS (no script, no image file), and everything stands still for people who ask for reduced motion.
- * On the right: the Spring AI, Vaadin, Hugging Face (Laya model) and GitHub logos and the language dropdown
- * (English · Tiếng Việt · 日本語).
+ * On the left, after ☰: the version this build runs (the release version on the live site), linked to its release
+ * notes — in the drawer instead below 900 px. On the right: the Spring AI, Vaadin, Hugging Face (Laya model) and GitHub
+ * logos and the language dropdown (English · Tiếng Việt · 日本語).
  */
 @Layout
 public class MainLayout extends AppLayout {
 
-    private static final String GITHUB =
-            "https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev";
+    private static final String GITHUB = AppVersion.GITHUB;
     private static final String LAYA_MODEL = "https://huggingface.co/letrthang/aimtas-laya-multilingual-GGUF";
 
     public MainLayout() {
@@ -45,7 +45,7 @@ public class MainLayout extends AppLayout {
         DrawerToggle toggle = new DrawerToggle();
         Div right = new Div(builtWith(), languages());
         right.addClassNames("rd-built-with", "flex", "items-center", "gap-2", "ml-auto");
-        Div header = new Div(toggle, center, right);
+        Div header = new Div(toggle, version("rd-version"), center, right);
         header.addClassNames("rd-header", "flex", "items-center", "w-full", "px-2", "gap-2");
         addToNavbar(header);
 
@@ -54,7 +54,21 @@ public class MainLayout extends AppLayout {
         nav.addItem(new SideNavItem(Tr.t("menu.search"), SearchDataView.class));
         nav.addItem(new SideNavItem(Tr.t("menu.keys"), KeyManagementView.class));
         nav.addClassNames("p-2");
-        addToDrawer(nav);
+        Div drawer = new Div(nav, version("rd-version-drawer"));
+        drawer.addClassNames("flex", "flex-col", "h-full");
+        addToDrawer(drawer);
+    }
+
+    /** "v1.0.0", linked to its release notes; nothing when the build has no version. */
+    private static Anchor version(String className) {
+        Anchor link = new Anchor(AppVersion.notesUrl(), AppVersion.VERSION == null ? "" : "v" + AppVersion.VERSION);
+        link.setTarget("_blank");
+        link.getElement().setAttribute("rel", "noopener");
+        link.getElement().setAttribute("title", AppVersion.released()
+                ? Tr.t("header.version", AppVersion.VERSION) : Tr.t("header.versionDev", AppVersion.VERSION));
+        link.addClassName(className);
+        link.setVisible(AppVersion.VERSION != null);
+        return link;
     }
 
     /**
