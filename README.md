@@ -119,7 +119,7 @@ is not persistent, so saved keys are lost on a restart or redeploy; the environm
 |---|---|
 | Laya / Hugging Face token | the default System 1 uses the public, keyless route |
 | OpenAI / Cohere embedding key | Weaviate's built-in vectorizer makes the vectors |
-| Render API key / Deploy Hook | Render deploys from GitHub on every push to the `release` branch |
+| Render Deploy Hook | Repo secret `RENDER_DEPLOY_HOOK_URL`; the release workflow `.github/workflows/deploy.yml` (run by hand) deploys the `release` branch through it |
 | Database password | H2 is a local file inside the app |
 
 ### Sample data
@@ -262,7 +262,7 @@ Good to know about the free plan:
 Current version: **1.1.2** — see [`CHANGELOG.md`](CHANGELOG.md) and the
 [GitHub releases](https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases).
 Branches: **`develop`** (daily work, by pull request) → after testing, **`main`** → for a new release, **`release`**,
-which Render deploys and which is tagged `vx.y.z`. Details in [`GITHUB_COMMIT_RULE.md`](GITHUB_COMMIT_RULE.md).
+which the release workflow (`.github/workflows/deploy.yml`, run by hand) deploys to Render and tags `vx.y.z`. Details in [`GITHUB_COMMIT_RULE.md`](GITHUB_COMMIT_RULE.md).
 
 ## Licence
 

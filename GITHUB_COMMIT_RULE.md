@@ -34,7 +34,7 @@ Three long-lived branches, in this order: **`develop` → `main` → `release`**
 |---|---|---|
 | `develop` | **Daily work.** Its `pom.xml` version is the next one, as a snapshot (e.g. `1.1.0-SNAPSHOT`). | PRs from `feat/*`, `bugfix/*`, `docs/*` (squash) |
 | `main` | **Tested work**: what passed the local test on `develop`. Not deployed. | PR `develop` → `main` (merge commit) |
-| `release` | **Production.** Render auto-deploys every push to `release`, so it is what the live site runs. | PR `main` → `release` (merge commit) — **only when the developer asks for a new release** |
+| `release` | **Production.** What the live site runs; deployed by the release workflow (`deploy.yml`, run by hand), never by a push. | PR `main` → `release` (merge commit) — **only when the developer asks for a new release** |
 | `feat/*`, `bugfix/*`, `docs/*` | One issue each, from `develop`. Deleted after the merge. | — |
 
 Never commit directly to `develop`, `main` or `release`: every change arrives by PR. Use a **merge commit** (not squash)
@@ -55,13 +55,20 @@ them carries only the new commits (squash would make every later PR conflict).
    `## [x.y.z] — YYYY-MM-DD` section in `CHANGELOG.md` (move the *[Unreleased]* items into it). Build and test:
    `./mvnw clean package` (all tests) and `docker build .` (Render builds the Dockerfile).
 2. PR `develop` → `main` (merge commit); check out `main`, run it locally and test it.
-3. **PR `main` → `release`** (merge commit). Render deploys `release` by itself; check that the deploy is live and the
-   live site works.
-4. Tag and GitHub release on the head of `release`, in the format of
-   [iattendance v5.4](https://github.com/letrthang/iattendance/releases/tag/v5.4):
+3. **PR `main` → `release`** (merge commit). This deploys nothing by itself: Render's Auto-Deploy is off.
+4. **Run the release workflow** — the only deploy path (#141). Pass every parameter the developer gave (version, tag,
+   environment) as inputs; there is no manual approval step:
    ```bash
-   gh release create vx.y.z --target release --title "vx.y.z — YYYY.MM.DD" --notes-file notes.md
+   gh workflow run deploy.yml --repo letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev \
+     --ref release -f version=x.y.z [-f tag=vx.y.z] [-f environment=production]
+   gh run list --repo letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev --workflow deploy.yml --limit 1
    ```
+   **Tell the developer the run is started, with its link** (`https://github.com/<repo>/actions/runs/<id>`), then
+   watch it (`gh run watch <id>`). The workflow checks the ref (`release`), the `pom.xml` version, the CHANGELOG section
+   and that the tag is new; runs `./mvnw clean verify`; calls the Render deploy hook (secret `RENDER_DEPLOY_HOOK_URL`);
+   waits for `/actuator/health` = UP; then creates the tag and the GitHub release **itself**, with the notes taken
+   from the `## [x.y.z]` section of `CHANGELOG.md`. Never run it to test it: every run deploys production.
+   The notes follow the format of [iattendance v5.4](https://github.com/letrthang/iattendance/releases/tag/v5.4):
    - No assets, not a draft.
    - Notes: `### Features` / `### Fixes` / `### Security` / `### Reliability` / `### Documentation` as they apply;
      each bullet starts with a **bold lead sentence**, then why and how in plain words, and a "Verified: …" note
@@ -71,13 +78,16 @@ them carries only the new commits (squash would make every later PR conflict).
 
 ### Urgent fix on the live site (hotfix) — only when the developer asks
 
-1. `hotfix/*` from `release`, the fix and its test → PR into `release` (Render deploys it).
+1. `hotfix/*` from `release`, the fix and its test → PR into `release`, then run the release workflow (step 4 above)
+   with the patch version — Render does not deploy a merge by itself.
 2. Then PR `release` → `main` and `main` → `develop`, so the fix is not lost. A version change, tag and GitHub release
    only if the developer asks for them.
 
 ### Render
 
-- `render.yaml`: `branch: release`, `autoDeploy: true`.
+- `render.yaml`: `branch: release`, `autoDeploy: false`. **Auto-Deploy must be OFF in the dashboard too** (Settings →
+  Build & Deploy → Auto-Deploy = No): `.github/workflows/deploy.yml` is the only deploy path, through the service's
+  Deploy Hook, stored as the repo secret `RENDER_DEPLOY_HOOK_URL` (set by the developer; never print it).
 - The live service must use the same branch: Render dashboard → the service → **Settings → Build & Deploy → Branch =
   `release`** (a Blueprint sync applies `render.yaml` too).
 - History: v1.0.0 was released from a `release/1.0.0` branch (tag `v1.0.0`); the single `release` branch starts at
