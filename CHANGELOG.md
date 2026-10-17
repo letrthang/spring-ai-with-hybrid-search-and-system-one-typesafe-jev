@@ -4,6 +4,13 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 the project uses [Semantic Versioning](https://semver.org/). Branches: `develop` (daily work) → `main` (tested) →
 `release` (production, deployed by Render, tagged `vx.y.z`).
 
+## [1.1.2] — 2026-10-17
+
+### Fixed
+- **System 2 🔄 Defaults also forgets a typed OpenRouter key** (#133). It reset the models and the base URL but kept a key
+  a visitor had typed (in memory only), so the only way back to the site owner's default was a restart — on the live
+  site a wrong key would have blocked the chat for everyone. Found by test case TC-03 while running the test cases (#13).
+
 ## [1.1.1] — 2026-10-17
 
 ### Changed
@@ -93,6 +100,7 @@ Live: <https://spring-ai-with-hybrid-search-and-system.onrender.com>
 - 85 automated tests, incl. a real Weaviate in Docker (`WeaviateIT`, 3,000 passages), a real H2, fake HTTP servers for
   Laya and OpenRouter, and a scripted model for the agent.
 
+[1.1.2]: https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases/tag/v1.1.2
 [1.1.1]: https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases/tag/v1.1.1
 [1.1.0]: https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases/tag/v1.1.0
 [1.0.0]: https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases/tag/v1.0.0
