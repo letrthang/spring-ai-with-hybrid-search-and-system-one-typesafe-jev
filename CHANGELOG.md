@@ -4,6 +4,8 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 the project uses [Semantic Versioning](https://semver.org/). Branches: `develop` (daily work) → `main` (tested) →
 `release` (production, deployed by Render, tagged `vx.y.z`).
 
+## [Unreleased]
+
 ## [1.1.1] — 2026-10-17
 
 ### Changed
