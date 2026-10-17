@@ -106,8 +106,10 @@ public class KeyManagementView extends Div implements HasDynamicTitle {
                     keys.set(KeyStore.SYSTEM2_BASE_URL, baseUrl.getValue());
                 },
                 () -> {
+                    keys.set(KeyStore.SYSTEM2_KEY, "");   // a typed key is forgotten: the owner's default applies again
                     keys.set(KeyStore.SYSTEM2_MODELS, "");
                     keys.set(KeyStore.SYSTEM2_BASE_URL, "");
+                    refreshSecret(key, KeyStore.SYSTEM2_KEY);
                     picker.setModels(keys.system2Models());
                     baseUrl.clear();
                 }, Tr.t("keys.defaults"),
