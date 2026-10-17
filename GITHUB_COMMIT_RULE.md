@@ -69,7 +69,8 @@ them carries only the new commits (squash would make every later PR conflict).
 ### A new release — only when the developer asks
 
 1. PR into `develop` (e.g. `docs/release-x.y.z`): `pom.xml` version `x.y.z` (drop `-SNAPSHOT`), a
-   `## [x.y.z] — YYYY-MM-DD` section in `CHANGELOG.md` (move the *[Unreleased]* items into it). Build and test:
+   `## [x.y.z] — YYYY-MM-DD` section in `CHANGELOG.md` (move the *[Unreleased]* items into it). **The date is the UTC
+   date of the release day** (`date -u +%Y-%m-%d`) — all release dates and times in this repo are UTC. Build and test:
    `./mvnw clean package` (all tests) and `docker build .` (Render builds the Dockerfile).
 2. PR `develop` → `main` (merge commit); check out `main`, run it locally and test it.
 3. **PR `main` → `release`** (merge commit). This deploys nothing by itself: Render's Auto-Deploy is off.
@@ -140,8 +141,22 @@ gh run watch <run-id> --repo letrthang/spring-ai-with-hybrid-search-and-system-o
 | 3 | Check pom version, CHANGELOG and tag | `pom.xml` ≠ `version`; no `## [x.y.z]` in `CHANGELOG.md`; the tag exists | no |
 | 4 | JDK 25 + `./mvnw -B clean verify` | a test or the build fails | no |
 | 5 | **Trigger Render deploy** (POST to the deploy hook) | the hook call fails | **yes, from here** |
-| 6 | Wait for the live app: 4 min, then `/actuator/health` = `UP` (up to ~20 min more; the free plan builds the image and cold-starts) | the app never reports UP | yes |
-| 7 | Tag `vx.y.z` on the deployed commit + GitHub release, notes = the `## [x.y.z]` CHANGELOG section + `Live app version: x.y.z — <live URL>` | `gh release create` fails | — |
+| 6 | Wait until the live app runs the new version: 2 min, then `/actuator/info` `build.version` = `version` and `/actuator/health` = `UP` (up to ~25 min more; the free plan builds the image and cold-starts, and the old instance answers meanwhile). A build without `/actuator/info` (≤ 1.2.0) falls back to health only, with a warning | the new version never comes up | yes |
+| 7 | Tag `vx.y.z` on the deployed commit + GitHub release titled `vx.y.z — YYYY.MM.DD` (the **UTC date from the CHANGELOG heading**), with the release notes below | `gh release create` fails | — |
+
+Step 3 also reads the release date from the CHANGELOG heading and **warns** when it is not today's UTC date.
+
+### Release notes (built by the workflow)
+
+1. The `## [x.y.z]` section of `CHANGELOG.md` (`### Added` / `### Changed` / `### Fixed` / `### Documentation` …,
+   each bullet with a **bold lead sentence**, then why and how).
+2. **Pull requests since the previous release** (GitHub's generated list).
+3. **Verified:** the test totals of `./mvnw clean verify`; the time the deploy hook was called and the time the new
+   version was live (UTC), with how it was checked; the workflow run link and who started it.
+4. **Build:** the commit on `release`, the previous release and the compare link; "All dates and times are UTC."
+5. `Live app version: x.y.z — <live URL>`.
+
+So the CHANGELOG section must already say what changed and why — write it for the reader of the release page.
 
 Only one deploy runs at a time (`concurrency: deploy-render`). The workflow needs `contents: write` to tag.
 
@@ -151,7 +166,7 @@ Only one deploy runs at a time (`concurrency: deploy-render`). The workflow need
   `release` by PR as usual, then run the workflow again with the same version. Nothing to roll back.
 - **Step 5 failed** (hook call): check the secret and the Render service (dashboard → Settings → Deploy Hook); run
   again. Nothing was deployed.
-- **Step 6 failed** (not UP in time): open the Render dashboard → the service → **Events / Logs** for that deploy.
+- **Step 6 failed** (the new version was not live in time): open the Render dashboard → the service → **Events / Logs** for that deploy.
   - Still building or starting → wait, check `<live URL>/actuator/health` by hand; once it is UP, finish step 7 by
     hand (below).
   - The deploy failed → Render keeps the previous version running. Fix the cause, then release again (same version
@@ -169,7 +184,7 @@ Only one deploy runs at a time (`concurrency: deploy-render`). The workflow need
 
 ### After every deploy
 
-- `<live URL>/actuator/health` → `{"status":"UP"}`.
+- `<live URL>/actuator/health` → `{"status":"UP"}` and `<live URL>/actuator/info` → `"build":{…"version":"x.y.z"…}`.
 - The app opens and its header shows the new version (`AppVersion`, from `build-info`).
 - The GitHub release `vx.y.z` exists and is marked **Latest**.
 - Then step 5 of [A new release](#a-new-release--only-when-the-developer-asks): `develop` → the next `-SNAPSHOT`.
