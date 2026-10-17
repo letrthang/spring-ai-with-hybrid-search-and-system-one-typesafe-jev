@@ -279,8 +279,8 @@
 }
 .rd-version:hover, .rd-version-drawer:hover { color: var(--vaadin-text-color); }
 .rd-version-drawer { display: none; align-self: flex-start; margin: auto 0 12px 16px; }
-/* below 900 px the centred title reaches the toggle: the version moves into the drawer */
-@media (max-width: 900px) { .rd-version { display: none; } .rd-version-drawer { display: inline-block; } }
+/* below 1100 px the centred title reaches "Version v…" (measured in EN / VI / JA): it moves into the drawer */
+@media (max-width: 1100px) { .rd-version { display: none; } .rd-version-drawer { display: inline-block; } }
 .rd-logo { height: 22px; width: auto; display: block; }
 .rd-logo-label { display: none; font-size: .8rem; font-weight: 600; color: var(--aura-secondary-text, #64748b); }
 /* four logos with names need room beside the centred title: names only on very wide screens, icons (with tooltips) below */

@@ -4,7 +4,12 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 the project uses [Semantic Versioning](https://semver.org/). Branches: `develop` (daily work) → `main` (tested) →
 `release` (production, deployed by Render, tagged `vx.y.z`).
 
-## [Unreleased]
+## [1.1.1] — 2026-10-17
+
+### Changed
+- **The header version reads "Version v1.1.1"** (EN; "Phiên bản …" in Vietnamese, "バージョン …" in Japanese), still
+  linked to the release notes. The longer text moves into the menu drawer below 1100 px (was 900 px), so it never
+  touches the centred title — measured in all three languages.
 
 ## [1.1.0] — 2026-10-17
 
@@ -88,5 +93,6 @@ Live: <https://spring-ai-with-hybrid-search-and-system.onrender.com>
 - 85 automated tests, incl. a real Weaviate in Docker (`WeaviateIT`, 3,000 passages), a real H2, fake HTTP servers for
   Laya and OpenRouter, and a scripted model for the agent.
 
+[1.1.1]: https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases/tag/v1.1.1
 [1.1.0]: https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases/tag/v1.1.0
 [1.0.0]: https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases/tag/v1.0.0
