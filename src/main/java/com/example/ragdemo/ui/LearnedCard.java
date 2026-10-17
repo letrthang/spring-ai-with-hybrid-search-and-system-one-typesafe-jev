@@ -2,12 +2,14 @@ package com.example.ragdemo.ui;
 
 import com.example.ragdemo.weaviate.LearnedAnswers;
 import com.example.ragdemo.weaviate.LearnedAnswers.Learned;
+import com.example.ragdemo.weaviate.WeaviateRecords;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.Shortcuts;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
+import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Paragraph;
@@ -18,16 +20,19 @@ import java.util.Locale;
 
 /**
  * 🧠 Learned answers (🔎 Search Data): what the app learned — every answer here was verified by ⚡ System 1 before
- * it was saved (DemoDoc objects with kind = learned). Lazy grid (one Weaviate page per scroll), a count, and 🗑 Forget all.
+ * it was saved (DemoDoc objects with kind = learned). Lazy grid (one Weaviate page per scroll), a count, 🗑 Forget all,
+ * ⛶ full screen, and 🔍 Details (double-click or right click on a row).
  */
 public class LearnedCard extends Div {
 
     private final LearnedAnswers learned;
+    private final WeaviateRecords records;
     private final Grid<Learned> grid = new Grid<>();
     private final Span count = new Span();
 
-    public LearnedCard(LearnedAnswers learned) {
+    public LearnedCard(LearnedAnswers learned, WeaviateRecords records) {
         this.learned = learned;
+        this.records = records;
         addClassNames("rd-card", "p-4", "flex", "flex-col", "gap-3");
 
         H3 title = new H3(Tr.t("learned.title"));
@@ -61,6 +66,11 @@ public class LearnedCard extends Div {
         grid.setEmptyStateText(Tr.t("learned.empty"));
         grid.setHeight("280px");
         grid.addClassName("rd-learned-grid");
+        // double-click or right click → Details…: the learned answer, its passages and the stored Weaviate object
+        grid.addItemDoubleClickListener(e -> openDetails(e.getItem()));
+        GridContextMenu<Learned> menu = grid.addContextMenu();
+        menu.setDynamicContentHandler(row -> row != null);   // only on rows, not on the header or empty space
+        menu.addItem(Tr.t("common.details"), e -> e.getItem().ifPresent(this::openDetails));
 
         add(bar, lead, grid);
         addAttachListener(e -> {
@@ -85,6 +95,11 @@ public class LearnedCard extends Div {
     private void toggleFullScreen() {
         if (hasClassName("rd-fullscreen")) removeClassName("rd-fullscreen");
         else addClassName("rd-fullscreen");
+    }
+
+    private void openDetails(Learned l) {
+        grid.select(l);
+        new LearnedDialog(l, records).open();
     }
 
     private void confirmForget() {

@@ -145,7 +145,7 @@ public class RecordDialog extends AppDialog {
      * (folded), {@code properties:} as key chips + value boxes, {@code vectors:} with the size, Copy and a short
      * preview. The field names stay as Weaviate writes them, so people recognise them in the console.
      */
-    private static Div object(StoredRecord r) {
+    static Div object(StoredRecord r) {
         Div json = json(r);
         Div fields = fields(r);
         fields.setVisible(false);
@@ -274,7 +274,7 @@ public class RecordDialog extends AppDialog {
 
     // ------------------------------------------------------------------ helpers
 
-    private static Div section(String title, Hint hint, Component content) {
+    static Div section(String title, Hint hint, Component content) {
         H3 heading = new H3(title);
         heading.addClassNames("m-0", "text-sm");
         Div section = new Div(InfoHint.with(heading, hint), content);
@@ -282,7 +282,7 @@ public class RecordDialog extends AppDialog {
         return section;
     }
 
-    private static Div table(List<Row> rows) {
+    static Div table(List<Row> rows) {
         Div table = new Div();
         table.addClassNames("rd-record-table", "text-sm");
         for (Row row : rows) {
@@ -318,7 +318,7 @@ public class RecordDialog extends AppDialog {
         return s.toString();
     }
 
-    private static String time(Long millis) {
+    static String time(Long millis) {
         return millis == null ? "—" : Instant.ofEpochMilli(millis).toString();
     }
 }
