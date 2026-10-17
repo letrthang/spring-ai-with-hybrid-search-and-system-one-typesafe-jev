@@ -6,6 +6,8 @@ the project uses [Semantic Versioning](https://semver.org/). Branches: `develop`
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-10-17
+
 ### Changed
 - **Release dates are UTC, and the release title takes its date from `CHANGELOG.md`** (#149). The heading
   `## [x.y.z] — YYYY-MM-DD` is written as the UTC date; the workflow uses it for the GitHub release title and warns when
