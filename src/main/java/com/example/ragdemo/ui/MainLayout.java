@@ -22,7 +22,7 @@ import java.util.Locale;
  * <p>The header title sits in the centre; along the header's bottom border two slow wave lines drift like an ocean
  * swell. Pure CSS (no script, no image file), and everything stands still for people who ask for reduced motion.
  * On the left, after ☰: the version this build runs (the release version on the live site), linked to its release
- * notes — in the drawer instead below 900 px. On the right: the Spring AI, Vaadin, Hugging Face (Laya model) and GitHub
+ * notes — in the drawer instead below 1100 px. On the right: the Spring AI, Vaadin, Hugging Face (Laya model) and GitHub
  * logos and the language dropdown (English · Tiếng Việt · 日本語).
  */
 @Layout
@@ -59,9 +59,10 @@ public class MainLayout extends AppLayout {
         addToDrawer(drawer);
     }
 
-    /** "v1.0.0", linked to its release notes; nothing when the build has no version. */
+    /** "Version v1.1.0" (in the page's language), linked to its release notes; nothing when the build has no version. */
     private static Anchor version(String className) {
-        Anchor link = new Anchor(AppVersion.notesUrl(), AppVersion.VERSION == null ? "" : "v" + AppVersion.VERSION);
+        Anchor link = new Anchor(AppVersion.notesUrl(),
+                AppVersion.VERSION == null ? "" : Tr.t("header.versionLabel", AppVersion.VERSION));
         link.setTarget("_blank");
         link.getElement().setAttribute("rel", "noopener");
         link.getElement().setAttribute("title", AppVersion.released()
