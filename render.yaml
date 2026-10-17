@@ -1,5 +1,6 @@
-# Render Blueprint. The service is connected to this GitHub repo in the Render dashboard; Render redeploys on every
-# push to the `release` branch (develop → main → release; see GITHUB_COMMIT_RULE.md). No secrets here: the owner's
+# Render Blueprint. The service builds the `release` branch, but it does NOT auto-deploy: a release is deployed only by
+# .github/workflows/deploy.yml (workflow_dispatch → Render deploy hook; see GITHUB_COMMIT_RULE.md, #141). Keep
+# Auto-Deploy OFF in the Render dashboard too. No secrets here: the owner's
 # default keys are environment variables set in the Render dashboard (RAGDEMO_*).
 services:
   - type: web
@@ -7,5 +8,5 @@ services:
     runtime: docker
     plan: free
     branch: release
-    autoDeploy: true
+    autoDeploy: false
     healthCheckPath: /actuator/health
