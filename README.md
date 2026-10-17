@@ -3,7 +3,8 @@
 <p align="center">
   <b>A small demo / training app: how RAG works with System 1, System 2 and the Weaviate vector DB</b><br>
   <i>Built with Spring AI and Vaadin. Weaviate finds the passages (BM25 + vector), a fast System 1 model keeps the
-  useful ones, an LLM writes the answer — and every step is shown.</i>
+  useful ones, an LLM writes the answer — and every step is shown. Switch on <b>🛠 AI agentic mode</b> and the LLM
+  calls tools itself: it decides what to search, how often, and when it can answer.</i>
 </p>
 
 <p align="center">
@@ -15,11 +16,14 @@
   <img alt="Weaviate: BM25 + vector" src="https://img.shields.io/badge/Weaviate-BM25%20%2B%20vector-2bb673">
   <a href="https://huggingface.co/spaces/letrthang/aimtas-system-one-laya-slm"><img alt="System 1: Laya on Hugging Face" src="https://img.shields.io/badge/%F0%9F%A4%97%20System%201-Laya%20Space-ff9d00"></a>
   <img alt="System 2: OpenRouter free" src="https://img.shields.io/badge/System%202-OpenRouter%20free-c79a1e">
+  <img alt="AI agentic mode: tool calling" src="https://img.shields.io/badge/%F0%9F%9B%A0%20AI%20agentic%20mode-tool%20calling-7c3aed">
+  <img alt="self-learning" src="https://img.shields.io/badge/%F0%9F%A7%A0%20self--learning-verified%20answers-059669">
 </p>
 
 <p align="center">
   <a href="https://spring-ai-with-hybrid-search-and-system.onrender.com"><b>▶ Live demo</b></a> ·
   <a href="#how-it-works">How it works</a> ·
+  <a href="#-agentic-mode">🛠 Agentic mode</a> ·
   <a href="#what-you-need-to-start-the-web-app">What you need</a> ·
   <a href="#5-minute-demo-script">5-minute demo</a> ·
   <a href="#run-locally">Run locally</a> ·
@@ -49,16 +53,29 @@ flowchart LR
    drops the bad ones and re-ranks the rest.
 3. **System 2** (big LLM): writes the answer from the passages System 1 kept, citing them `[1]`.
 
+**Two ways to answer — you choose with a switch in 💬 Chat:**
+
+| | Fixed pipeline (default) | 🛠 AI agentic mode |
+|---|---|---|
+| Who decides the steps | the app: always search → ⚡ check → 🧠 write | 🧠 System 2: it calls **tools** as often as it needs, then answers |
+| Tools | — | `search_passages` (Weaviate + ⚡ System 1 check) · `find_learned_answer` (🧠 verified answers) · `recent_questions` (💾 H2 chat history) |
+| Good for | one clear question | questions that need several look-ups, e.g. *"Compare PCR and qPCR — what is different?"* |
+| Spring AI | `DocumentRetriever` → `DocumentPostProcessor` → `ContextualQueryAugmenter` → `ChatClient` | `@Tool` → `ToolCallback`s, the tool-calling loop run by the app against the `ChatModel` (≤ 6 calls) |
+
+In both, the answer is verified by ⚡ System 1 and **learned** for next time (🧠 self-learning), and 🔀 Data flow shows
+every step — in agentic mode, every round and tool call.
+
 | Step | What happens | Code |
 |---|---|---|
 | 1. Retrieve | Weaviate searches by **keywords (BM25)** and by **meaning (vector)** at the same time | `HybridRetriever` |
 | 2. Merge | **Reciprocal Rank Fusion**: `1/(60+rank)` from each list, added | `RrfFusion` |
 | 3. Filter | **System 1** (Laya) scores each passage: relevant? answers? prompt injection? | `SystemOneFilter`, `SystemOneReranker` |
 | 4. Generate | **System 2** (a free OpenRouter LLM) answers from the kept passages and cites them `[1]` | `SystemTwoClient` |
+| 🛠 Agent | **AI agentic mode**: System 2 calls the tools above itself, in a loop, then answers | `RagAgent` |
 | — | The whole flow, top to bottom, with a trace for 🔀 Data flow | `RagService` |
 
 The app has three pages: **💬 Chat** (answers with 📚 Sources, 🔬 Trace and a 🔀 Data flow dialog that shows every step
-with timings), **🔎 Search Data** (compare BM25 / Vector / Hybrid, double-click a row to see the stored record) and
+with timings; the **🛠 Agentic mode** switch), **🔎 Search Data** (compare BM25 / Vector / Hybrid, double-click a row to see the stored record) and
 **🔑 Key Management**. Every important part has an **ℹ️** button that explains it — what it is, what it does, how it
 links to the rest, and a little theory. The whole page, hints included, is in 🇬🇧 English, 🇻🇳 Tiếng Việt and
 🇯🇵 日本語 (dropdown at the top right). Plan: issue [#2](https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/issues/2) · design: [architecture.md](architecture.md).
@@ -184,7 +201,12 @@ The app re-checks every 30 seconds and turns the chat back on by itself when all
    - Open **📚 Sources**: which passages Weaviate found, Laya's three scores, ✅ kept / 🚫 dropped.
    - Open **🔀 Data flow**: the whole trip — BM25 + vector, RRF, one Laya call per passage, the prompt, System 2.
 4. Ask **"What does Newton's second law say?"** — the answer is *F = m · a* with [1]. 📚 Sources shows Newton's laws ✅ kept, while the other physics passages the search also found are 🚫 dropped as not relevant: System 1 at work.
-5. Show **⚠️ fail closed**: clear the OpenRouter key → the chat is disabled with a banner, nothing is sent.
+5. Tick **🛠 Agentic mode** and ask **"Compare PCR and qPCR — what is different?"** — the 🧭 diagram shows the tool loop
+   above System 2; the answer's chip says *🛠 Agent · 3 rounds · 2 tool calls*, and 🔀 Data flow shows each round: System 2
+   asks for `search_passages`, the app searches Weaviate, ⚡ checks the passages, sends them back, and System 2 searches
+   again or answers.
+6. Ask the same first question again — **♻️ reused**: the learned answer comes back in ~1.5 s without System 2.
+7. Show **⚠️ fail closed**: clear the OpenRouter key → the chat is disabled with a banner, nothing is sent.
 
 Test cases and their latest results: [`docs/testing/test_cases.md`](docs/testing/test_cases.md).
 
