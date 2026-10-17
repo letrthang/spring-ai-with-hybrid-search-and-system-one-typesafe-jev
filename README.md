@@ -235,6 +235,14 @@ Good to know about the free plan:
 - **Sleeps after 15 minutes idle** — the first request wakes it in about a minute.
 - Health check: `/actuator/health`.
 
+## Releases
+
+Current version: **1.0.0** — see [`CHANGELOG.md`](CHANGELOG.md) and the
+[GitHub releases](https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases).
+The project follows **git flow**: features branch from `develop` and come back by pull request; a `release/x.y.z`
+branch is merged into `main` (which Render deploys) and tagged `vx.y.z`; urgent fixes go `hotfix/x.y.z` → `main` and
+`develop`.
+
 ## Licence
 
 [Apache-2.0](LICENSE) — free to use, change and share, also commercially; keep the licence and copyright notices.
