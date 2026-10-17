@@ -259,7 +259,7 @@ Good to know about the free plan:
 
 ## Releases
 
-Current version: **1.1.1** — see [`CHANGELOG.md`](CHANGELOG.md) and the
+Current version: **1.1.2** — see [`CHANGELOG.md`](CHANGELOG.md) and the
 [GitHub releases](https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases).
 Branches: **`develop`** (daily work, by pull request) → after testing, **`main`** → for a new release, **`release`**,
 which Render deploys and which is tagged `vx.y.z`. Details in [`GITHUB_COMMIT_RULE.md`](GITHUB_COMMIT_RULE.md).
