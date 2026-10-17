@@ -1,0 +1,141 @@
+# Release & deploy to Render — started ONLY by hand (workflow_dispatch), never by a push.
+#
+#   gh workflow run deploy.yml --repo letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev \
+#     --ref release -f version=1.2.0 [-f tag=v1.2.0] [-f environment=production]
+#
+# The bot runs it when the developer asks for a release, after the PR main → release is merged
+# (see GITHUB_COMMIT_RULE.md "A new release"). Render's own Auto-Deploy is OFF, so this is the only deploy path.
+# Requires the repo secret RENDER_DEPLOY_HOOK_URL (Render → the service → Settings → Deploy Hook).
+# Never run it to "test" it: every run deploys production.
+name: Release & Deploy to Render
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version x.y.z (must equal the pom.xml version on release)"
+        required: true
+        type: string
+      tag:
+        description: "Git tag to create (default: v<version>)"
+        required: false
+        type: string
+        default: ""
+      environment:
+        description: "Target environment"
+        required: false
+        type: choice
+        options:
+          - production
+        default: production
+
+permissions:
+  contents: write   # create the tag and the GitHub release
+
+concurrency:
+  group: deploy-render
+  cancel-in-progress: false
+
+env:
+  LIVE_URL: https://spring-ai-with-hybrid-search-and-system.onrender.com
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ inputs.version }}
+      TAG: ${{ inputs.tag != '' && inputs.tag || format('v{0}', inputs.version) }}
+      TARGET_ENV: ${{ inputs.environment }}
+
+    steps:
+      # ─── 1. Guards that need no checkout ───
+      - name: Check ref, inputs and secret
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/release" ]; then
+            echo "::error::Run this workflow on the release branch (--ref release), not $GITHUB_REF."; exit 1
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::version must be x.y.z, got '$VERSION'."; exit 1
+          fi
+          if [ -z "$HOOK" ]; then
+            echo "::error::Repo secret RENDER_DEPLOY_HOOK_URL is not set (Render → the service → Settings → Deploy Hook)."; exit 1
+          fi
+          echo "🏷️ version $VERSION · tag $TAG · environment $TARGET_ENV"
+
+      # ─── 2. Checkout the release head (full history for the tag check) ───
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ─── 3. Guards on the code ───
+      - name: Check pom version, CHANGELOG and tag
+        run: |
+          set -euo pipefail
+          # the project's own <version> is the first one in pom.xml (it sits above <parent>)
+          POM_VERSION=$(sed -n 's:.*<version>\(.*\)</version>.*:\1:p' pom.xml | head -n 1)
+          if [ "$POM_VERSION" != "$VERSION" ]; then
+            echo "::error::pom.xml version on release is '$POM_VERSION', not '$VERSION'. Merge the release PR first."; exit 1
+          fi
+          if ! grep -Eq "^## \[$(printf '%s' "$VERSION" | sed 's/\./\\./g')\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section."; exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Tag $TAG already exists. Never reuse a version."; exit 1
+          fi
+
+      # ─── 4. Build and test ───
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Build and test
+        run: ./mvnw -B clean verify
+
+      # ─── 5. Deploy through Render's deploy hook ───
+      - name: Trigger Render deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST "$HOOK" -o /dev/null
+          echo "🚀 Render deploy triggered for $GITHUB_SHA"
+
+      # ─── 6. Wait until the live app is up again ───
+      # The free plan builds the Docker image (~5–10 min) and cold-starts; the old instance may answer meanwhile,
+      # so wait a few minutes first, then require /actuator/health = UP.
+      - name: Wait for the live app
+        run: |
+          set -uo pipefail
+          sleep 240
+          for i in $(seq 1 60); do
+            BODY=$(curl -s -m 60 "$LIVE_URL/actuator/health" || true)
+            if printf '%s' "$BODY" | grep -q '"status":"UP"'; then
+              echo "✅ $LIVE_URL is UP (attempt $i)"; exit 0
+            fi
+            echo "… not UP yet (attempt $i)"; sleep 20
+          done
+          echo "::error::$LIVE_URL did not report UP in time. Check the Render dashboard."; exit 1
+
+      # ─── 7. Tag + GitHub release, notes from CHANGELOG ───
+      - name: Tag and publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { f = 1; next }
+            f && /^## \[/ { exit }
+            f { print }
+          ' CHANGELOG.md > notes.md
+          printf '\nLive app version: %s — %s\n' "$VERSION" "$LIVE_URL" >> notes.md
+          gh release create "$TAG" --target "$GITHUB_SHA" \
+            --title "$TAG — $(date -u +%Y.%m.%d)" --notes-file notes.md
+          echo "🏁 Released $TAG: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
