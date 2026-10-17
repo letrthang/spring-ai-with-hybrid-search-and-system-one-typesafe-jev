@@ -4,7 +4,7 @@
 
 > [!IMPORTANT]
 > **The bot creates a new release version only when the developer asks for it.**
-> Merging into `develop` or `main` is not a release: no version change, no `release/*` branch, no tag and no GitHub
+> Merging into `develop` or `main` is not a release: no PR `main` → `release`, no version change, no tag and no GitHub
 > release unless the developer explicitly asks for one. See [Git flow](#git-flow-since-v100).
 
 # GitHub Commit and Push Rules for Bot
@@ -17,66 +17,71 @@ When the bot is asked to commit or push code changes to the GitHub repository, i
 4. Create a pull request (PR) to merge the new branch into `develop`.
 5. Merge PR into `develop` (squash). Need not wait for approval from other developers. But can stop and report if there are many conflicts that the bot determines it cannot safely resolve.
 6. After the PR is merged successfully, switch local repo back to `develop` and delete the local `feat/*`, `bugfix/*` or `docs/*` branch.
-7. From `develop` branch, pull the latest changes to sync up with the remote repository, build and run the app locally and test the merged change before starting the next branch.
+7. From `develop` branch, pull the latest changes to sync up with the remote repository, build and run the app locally and test the merged change. When the test passes, create a PR `develop` → `main` and merge it (merge commit) — see [Daily work](#daily-work).
 
 ## Git flow (since v1.0.0)
 
-The repo uses [git flow](https://nvie.com/posts/a-successful-git-branching-model/) since release **v1.0.0**.
+Three long-lived branches, in this order: **`develop` → `main` → `release`**.
 
 > [!IMPORTANT]
 > **The bot creates a new release version only when the developer asks for it.** Without that request the bot never
-> creates a `release/*` branch, never changes the version in `pom.xml`, never creates a tag and never publishes a
-> GitHub release — even after many merges into `develop`, and even when a change is merged into `main`.
+> opens a PR `main` → `release`, never changes the version in `pom.xml`, never creates a tag and never publishes a
+> GitHub release — however many changes are merged into `develop` and `main`.
 
 ### Branches
 
-| Branch | Comes from | Merges into | What it holds |
-|---|---|---|---|
-| `main` | — | — | **Production.** Render deploys every push to `main`, so `main` is what the live site runs. Only `release/*`, `hotfix/*` and changes the developer explicitly asks to put on `main` reach it. |
-| `develop` | `main` | — | **Integration.** Everyday work. Its `pom.xml` version is the next one, as a snapshot (e.g. `1.1.0-SNAPSHOT`). |
-| `feat/*`, `bugfix/*`, `docs/*` | `develop` | `develop` (PR, squash) | One issue each. Deleted after the merge. |
-| `release/x.y.z` | `develop` | `main` (PR, **merge commit**) | A release being prepared — **only when the developer asks**. Kept after the release: the tag points at its head. |
-| `hotfix/x.y.z` | `main` | `main` (PR, merge commit), then `develop` | An urgent fix for the live site. |
+| Branch | What it holds | Gets its changes from |
+|---|---|---|
+| `develop` | **Daily work.** Its `pom.xml` version is the next one, as a snapshot (e.g. `1.1.0-SNAPSHOT`). | PRs from `feat/*`, `bugfix/*`, `docs/*` (squash) |
+| `main` | **Tested work**: what passed the local test on `develop`. Not deployed. | PR `develop` → `main` (merge commit) |
+| `release` | **Production.** Render auto-deploys every push to `release`, so it is what the live site runs. | PR `main` → `release` (merge commit) — **only when the developer asks for a new release** |
+| `feat/*`, `bugfix/*`, `docs/*` | One issue each, from `develop`. Deleted after the merge. | — |
 
-### Everyday work
+Never commit directly to `develop`, `main` or `release`: every change arrives by PR. Use a **merge commit** (not squash)
+for `develop` → `main` and `main` → `release`: the three branches then share their history, so the next PR between
+them carries only the new commits (squash would make every later PR conflict).
 
-Steps 1–7 above: a branch from `develop`, a PR into `develop`, then test the merged `develop` locally. New features are
-**not live** until the next release — say so when the developer asks about the live site.
+### Daily work
 
-### A change the developer wants on `main` without a release
+1. Steps 1–7 above: a `feat/*`, `bugfix/*` or `docs/*` branch from `develop`, a PR into `develop`, then build, run and
+   test the merged `develop` locally.
+2. After that test passes: **PR `develop` → `main`**, merge commit. Check out `main`, pull, and check it builds and runs.
+3. That is all — nothing goes to `release` and nothing is live until the developer asks for a new release. Say so when
+   the developer asks about the live site.
 
-For example a docs update the developer asks to merge to `main` now:
+### A new release — only when the developer asks
 
-1. Branch from **`main`** (not `develop`: that would carry `develop`'s snapshot version and unreleased work into `main`).
-2. PR into `main`, squash merge. No version change, no tag, no release.
-3. Bring `main` back into `develop` with a PR `main` → `develop` (merge commit; never delete `main`), so `develop`
-   does not fall behind.
-
-### Creating a release — only when the developer asks
-
-1. `release/x.y.z` from the latest `develop`: `pom.xml` version `x.y.z` (drop `-SNAPSHOT`), a `## [x.y.z] — YYYY-MM-DD`
-   section in `CHANGELOG.md` (move the *[Unreleased]* items into it). Build and test: `./mvnw clean package` (all
-   tests) and `docker build .` (Render builds the Dockerfile).
-2. PR `release/x.y.z` → `main`, merged with a **merge commit** (not squash), so the release branch's head is in `main`.
-3. Check out `main`, pull, run it locally and test it.
-4. GitHub release, in the format of
+1. PR into `develop` (e.g. `docs/release-x.y.z`): `pom.xml` version `x.y.z` (drop `-SNAPSHOT`), a
+   `## [x.y.z] — YYYY-MM-DD` section in `CHANGELOG.md` (move the *[Unreleased]* items into it). Build and test:
+   `./mvnw clean package` (all tests) and `docker build .` (Render builds the Dockerfile).
+2. PR `develop` → `main` (merge commit); check out `main`, run it locally and test it.
+3. **PR `main` → `release`** (merge commit). Render deploys `release` by itself; check that the deploy is live and the
+   live site works.
+4. Tag and GitHub release on the head of `release`, in the format of
    [iattendance v5.4](https://github.com/letrthang/iattendance/releases/tag/v5.4):
    ```bash
-   gh release create vx.y.z --target release/x.y.z --title "vx.y.z — YYYY.MM.DD" --notes-file notes.md
+   gh release create vx.y.z --target release --title "vx.y.z — YYYY.MM.DD" --notes-file notes.md
    ```
-   - The tag `vx.y.z` is created on the head of `release/x.y.z` (the commit `main` runs). No assets, not a draft.
+   - No assets, not a draft.
    - Notes: `### Features` / `### Fixes` / `### Security` / `### Reliability` / `### Documentation` as they apply;
      each bullet starts with a **bold lead sentence**, then why and how in plain words, and a "Verified: …" note
      where something was tested. Last line: `Live app version: x.y.z — <live URL>`.
-5. Bring `main` into `develop` (fast-forward when possible, else a PR `main` → `develop`), then a PR into `develop`
-   that bumps `pom.xml` to the next `-SNAPSHOT` and opens a new `## [Unreleased]` section in `CHANGELOG.md`.
-6. Keep `release/x.y.z` (do not delete it).
+5. PR into `develop`: `pom.xml` → the next `-SNAPSHOT`, a new `## [Unreleased]` section in `CHANGELOG.md`; then
+   `develop` → `main` as usual.
 
-### Hotfix
+### Urgent fix on the live site (hotfix) — only when the developer asks
 
-1. `hotfix/x.y.z` from `main` (`x.y.z` = the released version + 1 in the last number), the fix and its test.
-2. PR into `main` (merge commit). A version change, tag and GitHub release only if the developer asks for them.
-3. Bring `main` back into `develop` (PR `main` → `develop`).
+1. `hotfix/*` from `release`, the fix and its test → PR into `release` (Render deploys it).
+2. Then PR `release` → `main` and `main` → `develop`, so the fix is not lost. A version change, tag and GitHub release
+   only if the developer asks for them.
+
+### Render
+
+- `render.yaml`: `branch: release`, `autoDeploy: true`.
+- The live service must use the same branch: Render dashboard → the service → **Settings → Build & Deploy → Branch =
+  `release`** (a Blueprint sync applies `render.yaml` too).
+- History: v1.0.0 was released from a `release/1.0.0` branch (tag `v1.0.0`); the single `release` branch starts at
+  that tag. Git cannot hold `release` and `release/…` branches together, so never create `release/*` branches.
 
 ## What the Bot May Stage — NEVER `git add -A`
 
@@ -278,10 +283,10 @@ Apply labels at creation time.
 
 ## Notes
 
-- Do not commit directly to `main` or `develop`. Always create a PR: into `develop` for everyday work, into `main` only for `release/*`, `hotfix/*` and changes the developer asks to put on `main`.
-- Create a new release version (release branch, version, tag, GitHub release) **only when the developer asks**.
+- Do not commit directly to `develop`, `main` or `release`. Always create a PR: feature branches → `develop`, then `develop` → `main` after the test, and `main` → `release` only for a new release.
+- Create a new release version (PR `main` → `release`, version, tag, GitHub release) **only when the developer asks**.
 - Keep branch names descriptive and scoped to one task.
 - Ensure PR status checks pass before merge.
 - Do not commit `package.json` and `package-lock.json`.
-- Always delete the local branch after its PR is merged (except `release/*`, which is kept).
+- Always delete the local feature branch after its PR is merged (never `develop`, `main` or `release`).
 - Switch back to the branch the PR went into (`develop`, or `main`) and pull the latest changes after the merge.

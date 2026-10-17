@@ -1,8 +1,8 @@
 # Changelog
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
-the project uses [Semantic Versioning](https://semver.org/). Releases follow git flow: features go to `develop`, a
-`release/x.y.z` branch goes to `main` (which Render deploys) and is tagged `vx.y.z`.
+the project uses [Semantic Versioning](https://semver.org/). Branches: `develop` (daily work) → `main` (tested) →
+`release` (production, deployed by Render, tagged `vx.y.z`).
 
 ## [Unreleased]
 
