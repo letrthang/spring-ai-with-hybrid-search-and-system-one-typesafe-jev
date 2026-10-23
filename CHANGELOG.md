@@ -6,6 +6,14 @@ the project uses [Semantic Versioning](https://semver.org/). Branches: `develop`
 
 ## [Unreleased]
 
+## [1.2.2] — 2026-10-23
+
+### Changed
+- **System 1 points to the renamed Laya Space.** Laya is a System One *decision model*, so its Hugging Face Space is now
+  `letrthang/aimtas-system-one-decision-model-laya`; `KeyStore.DEFAULT_SYSTEM1_URL` and the README links use
+  `https://letrthang-aimtas-system-one-decision-model-laya.hf.space`. The old Space stays up until every caller has switched.
+  Verified: `KeyStoreTest` passes; the new Space answers `GET /health` (200) and `POST /demo/systemone`.
+
 ## [1.2.1] — 2026-10-17
 
 ### Changed
