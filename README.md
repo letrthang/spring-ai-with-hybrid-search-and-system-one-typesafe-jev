@@ -14,7 +14,7 @@
   <img alt="Spring AI 2.0" src="https://img.shields.io/badge/Spring%20AI-2.0-6db33f">
   <img alt="Vaadin 25" src="https://img.shields.io/badge/Vaadin-25-00b4f0">
   <img alt="Weaviate: BM25 + vector" src="https://img.shields.io/badge/Weaviate-BM25%20%2B%20vector-2bb673">
-  <a href="https://huggingface.co/spaces/letrthang/aimtas-system-one-laya-slm"><img alt="System 1: Laya on Hugging Face" src="https://img.shields.io/badge/%F0%9F%A4%97%20System%201-Laya%20Space-ff9d00"></a>
+  <a href="https://huggingface.co/spaces/letrthang/aimtas-system-one-decision-model-laya"><img alt="System 1: Laya on Hugging Face" src="https://img.shields.io/badge/%F0%9F%A4%97%20System%201-Laya%20Space-ff9d00"></a>
   <img alt="System 2: OpenRouter free" src="https://img.shields.io/badge/System%202-OpenRouter%20free-c79a1e">
   <img alt="AI agentic mode: tool calling" src="https://img.shields.io/badge/%F0%9F%9B%A0%20AI%20agentic%20mode-tool%20calling-7c3aed">
   <img alt="self-learning" src="https://img.shields.io/badge/%F0%9F%A7%A0%20self--learning-verified%20answers-059669">
@@ -31,8 +31,8 @@
   <a href="architecture.md">Architecture</a>
 </p>
 
-> ⚡🤗 **System 1 runs on [Laya — a System One decision model on Hugging Face](https://huggingface.co/spaces/letrthang/aimtas-system-one-laya-slm)**
-> Public, free, no key: typed questions in, calibrated probabilities out. **[▶ Try it on the Space](https://huggingface.co/spaces/letrthang/aimtas-system-one-laya-slm)**
+> ⚡🤗 **System 1 runs on [Laya — a System One decision model on Hugging Face](https://huggingface.co/spaces/letrthang/aimtas-system-one-decision-model-laya)**
+> Public, free, no key: typed questions in, calibrated probabilities out. **[▶ Try it on the Space](https://huggingface.co/spaces/letrthang/aimtas-system-one-decision-model-laya)**
 
 ---
 
@@ -134,12 +134,12 @@ gets English passages (one fact, not the same fact three times).
 
 ## System 1: default or your own
 
-🤗 **[Laya on Hugging Face](https://huggingface.co/spaces/letrthang/aimtas-system-one-laya-slm)** — open the Space to try the model in your browser.
+🤗 **[Laya on Hugging Face](https://huggingface.co/spaces/letrthang/aimtas-system-one-decision-model-laya)** — open the Space to try the model in your browser.
 
 **Default — nothing to do.** The app calls the public Laya Space:
 
 ```
-POST https://letrthang-aimtas-system-one-laya-slm.hf.space/demo/systemone
+POST https://letrthang-aimtas-system-one-decision-model-laya.hf.space/demo/systemone
 ```
 
 - No key. Limits: **10 calls / min** per IP, 1–3 questions and 2 KB per call. The app checks at most 4 passages per question, so about 2 questions a minute.

@@ -51,7 +51,7 @@ public class KeyStore {
             "google/gemma-4-31b-it:free",
             "google/gemma-4-26b-a4b-it:free");
     /** The public Laya Space. With no System 1 key the app calls its keyless route /demo/systemone. */
-    public static final String DEFAULT_SYSTEM1_URL = "https://letrthang-aimtas-system-one-laya-slm.hf.space";
+    public static final String DEFAULT_SYSTEM1_URL = "https://letrthang-aimtas-system-one-decision-model-laya.hf.space";
 
     /** Connection settings: what a visitor types is held in memory only — never stored in H2. */
     static final Set<String> IN_MEMORY = Set.of(WEAVIATE_URL, WEAVIATE_KEY, SYSTEM2_KEY, SYSTEM2_BASE_URL,
