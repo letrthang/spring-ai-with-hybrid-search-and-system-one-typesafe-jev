@@ -8,6 +8,16 @@
 </p>
 
 <p align="center">
+  <a href="https://spring-ai-with-hybrid-search-and-system.onrender.com">
+    <picture>
+      <source type="image/gif" srcset="https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/blob/docs/issue-evidence-images/images/2026_10_27_14_07_27_readme_how_it_works_animation.gif?raw=true">
+      <img alt="The 🧭 How it works diagram from the live app: a question flows left to right through Weaviate (BM25 + vector, merged with RRF), the top passages, System 1 · Laya (keep / drop / re-rank) and System 2 · OpenRouter, to the answer with sources — with learned-answer reuse above the question and ⚡ verify → 🧠 learned answers below the answer. Weaviate, System 1 and System 2 all show online." src="https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/blob/docs/issue-evidence-images/images/2026_10_27_14_07_27_readme_how_it_works_still.png?raw=true" width="860">
+    </picture>
+  </a><br>
+  <sub><i>The 🧭 How it works panel, recorded from the <a href="https://spring-ai-with-hybrid-search-and-system.onrender.com">live app</a>: a question travels left to right, and every box is a real service reporting its own status.</i></sub>
+</p>
+
+<p align="center">
   <a href="LICENSE"><img alt="licence: Apache-2.0" src="https://img.shields.io/badge/licence-Apache--2.0-blue"></a>
   <img alt="status: demo" src="https://img.shields.io/badge/status-demo-orange">
   <img alt="Java 25" src="https://img.shields.io/badge/Java-25-red">
