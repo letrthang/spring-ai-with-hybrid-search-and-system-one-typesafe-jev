@@ -21,6 +21,15 @@
 </p>
 
 <p align="center">
+  <a href="https://spring-ai-with-hybrid-search-and-system.onrender.com">
+    <picture>
+      <source type="image/webp" srcset="https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/blob/docs/issue-evidence-images/images/2026_10_27_14_41_02_readme_how_it_works_animation.webp?raw=true">
+      <img alt="The 🧭 How it works diagram from the live app: a question flows left to right through Weaviate (BM25 + vector, merged with RRF), the top passages, System 1 · Laya (keep / drop / re-rank) and System 2 · OpenRouter, to the answer with sources — with learned-answer reuse above the question and ⚡ verify → 🧠 learned answers below the answer. Weaviate, System 1 and System 2 all show online." src="https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/blob/docs/issue-evidence-images/images/2026_10_27_14_41_02_readme_how_it_works_still.png?raw=true" width="900">
+    </picture>
+  </a>
+</p>
+
+<p align="center">
   <a href="https://spring-ai-with-hybrid-search-and-system.onrender.com"><b>▶ Live demo</b></a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#-agentic-mode">🛠 Agentic mode</a> ·
