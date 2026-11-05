@@ -25,8 +25,9 @@
 
     <properties>
         <java.version>25</java.version>
-        <vaadin.version>25.3.2</vaadin.version>
-        <spring-ai.version>2.0.1</spring-ai.version>
+        <vaadin.version>25.3.4</vaadin.version>
+        <spring-ai.version>2.1.0-RC1</spring-ai.version>
+        <typesafe.version>0.1.0</typesafe.version>
     </properties>
 
     <dependencyManagement>
@@ -86,6 +87,20 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-openai</artifactId>
+        </dependency>
+
+        <!-- System 1: the TypeSafe / Jev SDK pointed at Laya's /v1/systemone (Jev-compatible). The starter builds the
+             default TypeSafeClient from spring.ai.typesafe.* (Laya's URL + the public test key); a URL or key typed in
+             Key Management gets its own client (LayaClient). typesafe-spring-ai: JevDocumentFilter, JevDocumentReranker. -->
+        <dependency>
+            <groupId>org.springaicommunity</groupId>
+            <artifactId>spring-ai-starter-typesafe</artifactId>
+            <version>${typesafe.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springaicommunity</groupId>
+            <artifactId>typesafe-spring-ai</artifactId>
+            <version>${typesafe.version}</version>
         </dependency>
 
         <!-- Weaviate Java client v6: BM25, nearText, collections. (Not spring-ai-weaviate-store: it has no BM25.) -->

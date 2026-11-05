@@ -2,7 +2,7 @@ package com.example.ragdemo.rag;
 
 import com.example.ragdemo.chat.ChatHistoryService;
 import com.example.ragdemo.rag.FlowRecorder.Actor;
-import com.example.ragdemo.system1.LayaClient;
+import com.example.ragdemo.system1.FakeLaya;
 import com.example.ragdemo.system1.SystemOneFilter;
 import com.example.ragdemo.system1.SystemOneReranker;
 import com.example.ragdemo.system2.SystemTwoClient;
@@ -93,12 +93,12 @@ class RagAgentTest {
         };
     }
 
-    RagService rag(SystemTwoClient model, HybridRetriever retriever, Map<String, LayaClient.Scores> scores,
+    RagService rag(SystemTwoClient model, HybridRetriever retriever, Map<String, FakeLaya.Scores> scores,
                    RuntimeException layaDown, List<String> history) {
         LearnedAnswers noLearned = noLearned();
         RagAgent agent = new RagAgent(model, retriever, laya(scores, layaDown), noLearned, verifier(true, 0.9),
                 history(history));
-        return new RagService(retriever, laya(scores, layaDown), new SystemOneReranker(), model, noLearned,
+        return new RagService(retriever, laya(scores, layaDown), RagServiceTest.reranker(), model, noLearned,
                 verifier(true, 0.9), agent);
     }
 
@@ -161,18 +161,15 @@ class RagAgentTest {
     @Test
     void systemOneBusyAfterTheFirstSearch_theAgentAnswersFromThePassagesItHas() {
         java.util.concurrent.atomic.AtomicInteger checks = new java.util.concurrent.atomic.AtomicInteger();
-        SystemOneFilter busyLater = new SystemOneFilter(new LayaClient(null) {
-            @Override
-            public Scores score(String question, String passage) {
-                if (checks.incrementAndGet() > HITS.size()) throw new SystemDownException(SYSTEM1, "status.system1.busy");
-                return SCORES.get(passage);
-            }
-        });
+        SystemOneFilter busyLater = new SystemOneFilter(FakeLaya.client(passage -> {
+            if (checks.incrementAndGet() > HITS.size()) throw FakeLaya.status(429);   // Laya's rate limit
+            return SCORES.get(passage);
+        }));
         SystemTwoClient model = model(calls("search_passages", "{\"query\":\"reset\"}"),
                 calls("search_passages", "{\"query\":\"reset again\"}"), text("Hold RESET for 5 s [1]."));
         RagAgent agent = new RagAgent(model, retriever(null), busyLater, noLearned(), verifier(true, 0.9),
                 history(List.of()));
-        RagAnswer a = new RagService(retriever(null), busyLater, new SystemOneReranker(), model, noLearned(),
+        RagAnswer a = new RagService(retriever(null), busyLater, RagServiceTest.reranker(), model, noLearned(),
                 verifier(true, 0.9), agent).ask("How do I reset AER-01?", true, p -> { });
 
         assertThat(a.failed()).isFalse();

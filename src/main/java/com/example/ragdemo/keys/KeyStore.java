@@ -50,8 +50,10 @@ public class KeyStore {
             "nvidia/nemotron-3-super-120b-a12b:free",
             "google/gemma-4-31b-it:free",
             "google/gemma-4-26b-a4b-it:free");
-    /** The public Laya Space. With no System 1 key the app calls its keyless route /demo/systemone. */
+    /** The public Laya Space; the app calls its Jev-compatible {@code /v1/systemone} through the TypeSafe SDK. */
     public static final String DEFAULT_SYSTEM1_URL = "https://letrthang-aimtas-system-one-decision-model-laya.hf.space";
+    /** Laya's public test key (published on purpose, rate limited by the Space) — the default of spring.ai.typesafe.api-key. */
+    public static final String DEFAULT_SYSTEM1_KEY = "laya-api-key-for-testing";
 
     /** Connection settings: what a visitor types is held in memory only — never stored in H2. */
     static final Set<String> IN_MEMORY = Set.of(WEAVIATE_URL, WEAVIATE_KEY, SYSTEM2_KEY, SYSTEM2_BASE_URL,
@@ -108,7 +110,7 @@ public class KeyStore {
     }
 
     public String system1Key() {
-        return get(SYSTEM1_KEY);
+        return orDefault(get(SYSTEM1_KEY), DEFAULT_SYSTEM1_KEY);
     }
 
     // ---- read / write
