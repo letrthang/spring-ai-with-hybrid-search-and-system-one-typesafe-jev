@@ -37,6 +37,16 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  # System 1 = Laya through the TypeSafe / Jev starter (spring-ai-starter-typesafe): it builds the default
+  # TypeSafeClient. The key is Laya's PUBLIC test key (rate limited, see the Laya README), not a secret; set your own
+  # with RAGDEMO_SYSTEM1_KEY. A URL / key typed in Key Management wins at runtime (LayaClient).
+  ai:
+    typesafe:
+      base-url: ${RAGDEMO_SYSTEM1_URL:https://letrthang-aimtas-system-one-decision-model-laya.hf.space}
+      api-key: ${RAGDEMO_SYSTEM1_KEY:laya-api-key-for-testing}
+      timeout: 60s
+      retry:
+        max-retries: 0   # a 429 / 503 is shown as the System 1 pill instead of being retried into the rate limit
 
 vaadin:
   launch-browser: false
@@ -59,6 +69,9 @@ ragdemo:
       key: ${RAGDEMO_WEAVIATE_KEY:}
     system2:
       key: ${RAGDEMO_OPENROUTER_KEY:}
+    system1:
+      url: ${spring.ai.typesafe.base-url}
+      key: ${spring.ai.typesafe.api-key}
 
 # Code-flow logs: one line per RAG step (+ details at DEBUG). DEBUG locally, INFO on Render (set in the Dockerfile).
 logging:
