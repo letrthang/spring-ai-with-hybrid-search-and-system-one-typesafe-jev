@@ -126,7 +126,7 @@ is not persistent, so saved keys are lost on a restart or redeploy; the environm
 
 | Not needed | Why |
 |---|---|
-| Laya / Hugging Face token | the default System 1 uses the public, keyless route |
+| Laya / Hugging Face token | the default System 1 uses Laya's public test key (built in) |
 | OpenAI / Cohere embedding key | Weaviate's built-in vectorizer makes the vectors |
 | Render Deploy Hook | Repo secret `RENDER_DEPLOY_HOOK_URL`; the release workflow `.github/workflows/deploy.yml` (run by hand) deploys the `release` branch through it |
 | Database password | H2 is a local file inside the app |
@@ -145,17 +145,30 @@ gets English passages (one fact, not the same fact three times).
 
 🤗 **[Laya on Hugging Face](https://huggingface.co/spaces/letrthang/aimtas-system-one-decision-model-laya)** — open the Space to try the model in your browser.
 
-**Default — nothing to do.** The app calls the public Laya Space:
+**Default — nothing to do.** The app calls Laya's Jev-compatible API through the TypeSafe SDK
+(`spring-ai-starter-typesafe` + `typesafe-spring-ai` 0.1.0; `JevDocumentFilter` and `JevDocumentReranker`):
 
 ```
-POST https://letrthang-aimtas-system-one-decision-model-laya.hf.space/demo/systemone
+POST https://letrthang-aimtas-system-one-decision-model-laya.hf.space/v1/systemone
+Authorization: Bearer laya-api-key-for-testing        # Laya's public test key — published on purpose, not a secret
 ```
 
-- No key. Limits: **10 calls / min** per IP, 1–3 questions and 2 KB per call. The app checks at most 4 passages per question, so about 2 questions a minute.
+```yaml
+spring:
+  ai:
+    typesafe:
+      base-url: ${RAGDEMO_SYSTEM1_URL:https://letrthang-aimtas-system-one-decision-model-laya.hf.space}
+      api-key: ${RAGDEMO_SYSTEM1_KEY:laya-api-key-for-testing}
+      timeout: 60s
+      retry: { max-retries: 0 }
+```
+
+- Limits of the test key: **30 calls / min** per IP (burst 15), 60 / min for all test-key users → `429` (🟡 busy). One question costs about 4 filter + up to 4 rerank + 1–2 answer-check calls, so a few questions a minute.
+- The test key works on `/v1/systemone` only; the Space swaps it for its own secret `LLAMA_API_KEY`, which never leaves the Space.
 - The Space sleeps when idle and takes about a minute to wake up.
 - **System 1 is required** — see [When a service is down](#when-a-service-is-down).
 
-**Your own (optional):** run Laya yourself (`pip install "laya[serve]"` then `laya-serve` → `http://localhost:8000`) and set that URL in 🔑 Key Management → System 1 → Advanced.
+**Your own (optional):** run Laya yourself (`pip install "laya[serve]"` then `laya-serve` → `http://localhost:8000`) or use your own key, and set the URL and key in 🔑 Key Management → System 1 → Advanced (or `RAGDEMO_SYSTEM1_URL` / `RAGDEMO_SYSTEM1_KEY`). Any server that speaks TypeSafe's `POST /v1/systemone` with a Bearer key works.
 
 ## System 2: default or your own
 

@@ -28,7 +28,7 @@ flowchart LR
     B[🖥️ Browser<br/>Vaadin UI] <--> APP[☕ Spring Boot app]
     APP <--> H2[(💾 H2 file DB<br/>chat history + model list)]
     APP <-->|BM25 + nearText| W[(🗄️ Weaviate Cloud<br/>DemoDoc: passages + learned answers)]
-    APP <-->|POST /demo/systemone| S1[⚡ System 1<br/>Laya on Hugging Face]
+    APP <-->|TypeSafe SDK: POST /v1/systemone + test key| S1[⚡ System 1<br/>Laya on Hugging Face]
     APP <-->|OpenAI-compatible chat| S2[🧠 System 2<br/>OpenRouter free model]
 ```
 
@@ -38,7 +38,7 @@ flowchart LR
 | ☕ Spring Boot app | all the logic; runs on Render (Docker) or `localhost:8080` | — |
 | 💾 H2 file DB | `./data/ragdemo` — chat history and the System 2 model list (**never a key**) | — |
 | 🗄️ Weaviate Cloud | one collection `DemoDoc`: 3,000 passages (`kind = passage`) and the learned answers (`kind = learned`), with a keyword index (BM25) and vectors | ✅ URL + Admin key |
-| ⚡ System 1 | **Laya**, a *decision* model: answers yes/no questions with a probability | ❌ public route |
+| ⚡ System 1 | **Laya**, a *decision* model: answers yes/no questions with a probability | ❌ built-in public test key |
 | 🧠 System 2 | an OpenRouter **free** chat model: writes text | ✅ API key |
 
 ## 3. One question, step by step
@@ -87,17 +87,26 @@ sequenceDiagram
 3. **Fuse (RRF).** The two lists are merged with *Reciprocal Rank Fusion*: each passage gets
    `1 / (60 + rank)` from every list it appears in, and the scores are added. A passage high in **both** lists wins.
    The best **4** go on.
-4. **System 1 — filter and re-rank.** For each passage, Laya answers three typed questions, each as a probability:
+4. **System 1 — filter and re-rank**, with TypeSafe's `JevDocumentFilter` and `JevDocumentReranker`
+   (`spring-ai-starter-typesafe` + `typesafe-spring-ai` 0.1.0, as in the
+   [Spring blog post](https://spring.io/blog/2026/10/02/spring-ai-modular-rag-typesafe-jev)), pointed at Laya's
+   `/v1/systemone` with Laya's public test key. For each passage, Laya answers four typed questions, each as a
+   probability; the filter's policy applies them in order, the first match wins:
 
-   | Question | Type | Keep the passage if |
-   |---|---|---|
-   | `relevant` — is this passage about the question? | yes/no | ≥ 0.45 |
-   | `answers` — can it answer the question? | yes/no | ≥ 0.55 |
-   | `injection` — does it try to give the reader instructions? | yes/no | < 0.70 |
+   | Question | Rule |
+   |---|---|
+   | `contains_prompt_injection` — does it try to give an AI orders? | > 0.70 → dropped |
+   | `contradicts_query_premise` — does it contradict the question? | > 0.70 → kept, marked *conflicts with the question* |
+   | `is_relevant` — is it about the question? | < 0.45 → dropped |
+   | `contains_answer_evidence` — does it contain the answer? | > 0.55 → kept, else dropped |
 
-   The kept passages are sorted by `answers` and the best **3** go on. The four Laya calls run in parallel
-   (about 3–5 s in total). This is the same job as `JevDocumentFilter` and `JevDocumentReranker`
-   in the [Spring blog post](https://spring.io/blog/2026/10/02/spring-ai-modular-rag-typesafe-jev), done by Laya.
+   The reranker then asks `answers_query` for each kept passage, sorts by it, and the best **3** go on. The calls run
+   in parallel on virtual threads (about 3–7 s in total). Two things the app adds around the library
+   (`RecordingTypeSafeClient`): it **fails closed** (the library passes a passage it could not screen through; here
+   any failed call stops the question), and it records each answer and its time for 📚 Sources and 🔀 Data flow.
+   `LayaQuestions` rewords the library's questions into the form Laya was tested on (the passage as the state, the
+   question in the instruction), keeping their names: with the library's `{query, passage}` form Laya scored a plain
+   manual as an injection (0.61–0.99); reworded, 0.00, and a real injection 1.00.
 5. **Augment.** Spring AI's `ContextualQueryAugmenter` puts the kept passages, numbered `[1]`, `[2]`…, into the prompt
    with the instruction "answer only from this context".
 6. **Generate.** System 2 writes the answer. If the first free model fails (busy, down, slow), the next one in the
@@ -213,10 +222,12 @@ src/main/java/com/example/ragdemo/
 │   │                              lang + question) · list · count · forget
 │   └── WeaviateHealth.java        🟢 N passages / 🟡 empty or loaded by an older version / 🔴 down or bad key
 ├── system1/                       ⚡ Laya
-│   ├── LayaClient.java            POST /demo/systemone via RestClient: yes/no questions about a text → probabilities
+│   ├── LayaClient.java            the TypeSafeClient for the URL + key now (the starter's bean, or one for Key Management)
+│   ├── RecordingTypeSafeClient.java  wraps it per step: times + records every answer, fails closed (SystemDownException)
+│   ├── LayaQuestions.java         rewords JevDocumentFilter / JevDocumentReranker questions for Laya (same names)
 │   ├── AnswerVerifier.java        ⚡ checks ANSWERS: before learning (answers · grounded · injection) and before reuse
-│   ├── SystemOneFilter.java       Spring AI DocumentPostProcessor: score every passage, keep / drop
-│   ├── SystemOneReranker.java     Spring AI DocumentPostProcessor: sort the kept ones by "answers", best 3
+│   ├── SystemOneFilter.java       DocumentPostProcessor on JevDocumentFilter: score every passage, keep / conflict / drop
+│   ├── SystemOneReranker.java     DocumentPostProcessor on JevDocumentReranker: Laya's answers_query score, best 3
 │   └── SystemOneHealth.java       GET /health
 ├── system2/                       🧠 OpenRouter
 │   ├── SystemTwoClient.java       Spring AI OpenAiChatModel; one OpenAI client pair per key (stale ones closed first);
@@ -414,7 +425,7 @@ busy one.
 | Weaviate URL + Admin API key | 🔑 Key Management → **memory only** · default: env `RAGDEMO_WEAVIATE_URL`, `RAGDEMO_WEAVIATE_KEY` | key: yes |
 | OpenRouter API key | 🔑 Key Management → **memory only** · default: env `RAGDEMO_OPENROUTER_KEY` | yes |
 | OpenRouter models (free by default) | 🔑 Key Management → H2 | no |
-| System 2 base URL (default OpenRouter), System 1 URL + key (default the public, keyless Laya) | 🔑 Key Management → Advanced → memory only | key: yes |
+| System 2 base URL (default OpenRouter), System 1 URL + key (default Laya's Space + its public test key `laya-api-key-for-testing`, from `spring.ai.typesafe.*` / env `RAGDEMO_SYSTEM1_URL`, `RAGDEMO_SYSTEM1_KEY`) | 🔑 Key Management → Advanced → memory only | key: yes |
 
 - Order of a value: **typed in 🔑 Key Management** (held in memory: never written to H2, gone after a restart) →
   else the **environment default** (set on Render under Environment; locally in the git-ignored

@@ -6,6 +6,22 @@ the project uses [Semantic Versioning](https://semver.org/). Branches: `develop`
 
 ## [Unreleased]
 
+### Changed
+- **System 1 goes through the TypeSafe / Jev SDK.** The app now uses `org.springaicommunity:spring-ai-starter-typesafe`
+  and `typesafe-spring-ai` 0.1.0. `SystemOneFilter` runs `JevDocumentFilter` (four questions, the cookbook policy;
+  a passage that contradicts the question is kept and marked *conflicts with the question* — new `verdict.conflicting`)
+  and `SystemOneReranker` runs `JevDocumentReranker` (top 3). Laya is called on `POST /v1/systemone` with its public test
+  key `laya-api-key-for-testing` (Laya 1.1.0), configured in `spring.ai.typesafe.*` (`RAGDEMO_SYSTEM1_URL`,
+  `RAGDEMO_SYSTEM1_KEY`). The keyless `/demo/systemone` route is no longer used. A URL or key typed in 🔑 Key Management
+  gets its own client at the next call.
+  Still fail closed: `RecordingTypeSafeClient` wraps the client per step, so any failed call stops the question (the
+  library would pass the passage through unscreened). It also records the scores and times for 📚 Sources and 🔀 Data
+  flow. `LayaQuestions` rewords the library's questions into the form Laya reads well (same names): with the library's
+  `{query, passage}` form, Laya scored a plain manual as a prompt injection.
+  Verified: `./mvnw test` 90 tests, 0 failures; live against the Space with the test key: the manual is kept (relevant
+  0.99, injection 0.00), the canteen note is dropped as not relevant, a planted injection is dropped (1.00), and the
+  reranker scores the manual 0.99.
+
 ## [1.2.2] — 2026-10-23
 
 ### Changed
