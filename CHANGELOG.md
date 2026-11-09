@@ -6,6 +6,8 @@ the project uses [Semantic Versioning](https://semver.org/). Branches: `develop`
 
 ## [Unreleased]
 
+- Docs: `MULTI_TASKS_MANAGEMENT_AND_AGENT_MEMORY.md` follows the simplified Gitflow: work starts from `develop`, task PRs merge into `develop` (squash), and `main` gets only a `release/vX.Y.Z` PR when the owner asks for a release.
+
 ## [1.2.3] — 2026-11-09
 
 ### Changed
