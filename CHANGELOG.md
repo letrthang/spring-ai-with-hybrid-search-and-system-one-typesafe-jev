@@ -1,12 +1,22 @@
 # Changelog
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
-the project uses [Semantic Versioning](https://semver.org/). Branches: `develop` (daily work) → `main` (tested) →
-`release` (production, deployed by Render, tagged `vx.y.z`).
+the project uses [Semantic Versioning](https://semver.org/). Branches: `develop` (integration) → `release/vX.Y.Z` →
+`main` (production: each merge is tagged `vX.Y.Z` and deployed to Render).
 
 ## [Unreleased]
 
 ### Changed
+- **Simplified Gitflow: `release/vX.Y.Z` → `main`, automatic tag + GitHub Release, deploy from tags, back-merge.** A
+  release is a `release/vX.Y.Z` branch from `develop` (the `pom.xml` version and the CHANGELOG section are set there, it
+  is tested locally and the last fixes are committed on it), merged into `main` by PR. On the merge `release.yml` tags
+  `vX.Y.Z`, publishes the GitHub Release (CHANGELOG section + generated notes), runs `deploy.yml` and merges `main` back
+  into `develop`. `deploy.yml` now deploys only a tag on `main`: it checks `pom.xml` and the CHANGELOG against the tag,
+  runs `./mvnw -B clean verify` (JDK 25), calls the Render deploy hook with the tagged commit (`ref=<sha>`) and waits
+  until `/actuator/info` reports the version; it no longer creates tags or releases. Render tracks `main` with
+  Auto-Deploy off (`render.yaml`: `branch: main`). `gitflow-guard.yml` marks a PR into `main` red unless it comes from
+  `release/vX.Y.Z` with a CHANGELOG section and an unused tag. Rollback:
+  `gh workflow run deploy.yml --ref main -f tag=v<previous>`.
 - **System 1 goes through the TypeSafe / Jev SDK.** The app now uses `org.springaicommunity:spring-ai-starter-typesafe`
   and `typesafe-spring-ai` 0.1.0. `SystemOneFilter` runs `JevDocumentFilter` (four questions, the cookbook policy;
   a passage that contradicts the question is kept and marked *conflicts with the question* — new `verdict.conflicting`)
