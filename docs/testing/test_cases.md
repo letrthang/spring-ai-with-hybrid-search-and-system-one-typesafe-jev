@@ -319,7 +319,8 @@ fails, the question stops like the pipeline ("⛔ 🗄️ Weaviate" / "⛔ ⚡ S
 pooled keep-alives (Weaviate Cloud, OpenRouter, Laya). (Automated: `LayaClientHttpTest`, `SystemTwoClientHttpTest`.)
 
 ### TC-32 · Redeploy on Render
-1. Merge a PR to `main`; watch Render's deploy. 2. Keep a page open during the switch-over.
+1. Merge a `release/vX.Y.Z` PR into `main` (or redeploy a tag: `gh workflow run deploy.yml --ref main -f tag=vX.Y.Z`);
+watch the deploy run and Render's deploy. 2. Keep a page open during the switch-over.
 
 **Expected:** the new instance goes live; the log of the old one shows "Commencing graceful shutdown" → "Graceful
 shutdown complete" and no "Database is already closed"; keys still work (environment defaults).

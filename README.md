@@ -128,7 +128,7 @@ is not persistent, so saved keys are lost on a restart or redeploy; the environm
 |---|---|
 | Laya / Hugging Face token | the default System 1 uses Laya's public test key (built in) |
 | OpenAI / Cohere embedding key | Weaviate's built-in vectorizer makes the vectors |
-| Render Deploy Hook | Repo secret `RENDER_DEPLOY_HOOK_URL`; the release workflow `.github/workflows/deploy.yml` (run by hand) deploys the `release` branch through it |
+| Render Deploy Hook | Repo secret `RENDER_DEPLOY_HOOK_URL`; `.github/workflows/deploy.yml` deploys a release tag `vX.Y.Z` on `main` through it |
 | Database password | H2 is a local file inside the app |
 
 ### Sample data
@@ -269,7 +269,8 @@ The repo is a Render **Blueprint**: [`render.yaml`](render.yaml) describes one f
 [`Dockerfile`](Dockerfile) builds the jar (Maven + Vaadin production bundle) and runs it on a plain JRE.
 
 1. Render dashboard → **New → Blueprint** → connect this GitHub repo → **Apply**. No API key or secret is needed.
-2. Render installs its GitHub App; from then on **every push to the `release` branch redeploys** automatically.
+2. In the service settings keep **Branch = `main`** and **Auto-Deploy = Off**: only `.github/workflows/deploy.yml` deploys,
+   for a release tag `vX.Y.Z` on `main`, through the Deploy Hook (repo secret `RENDER_DEPLOY_HOOK_URL`).
 3. Open the service URL → 🔑 Key Management → enter the Weaviate URL + Admin key and the OpenRouter key →
    🔎 Search Data → 📥 Load sample data → 💬 Chat.
 
@@ -281,10 +282,12 @@ Good to know about the free plan:
 
 ## Releases
 
-Current version: **1.1.2** — see [`CHANGELOG.md`](CHANGELOG.md) and the
+Current version: **1.2.2** — see [`CHANGELOG.md`](CHANGELOG.md) and the
 [GitHub releases](https://github.com/letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev/releases).
-Branches: **`develop`** (daily work, by pull request) → after testing, **`main`** → for a new release, **`release`**,
-which the release workflow (`.github/workflows/deploy.yml`, run by hand) deploys to Render and tags `vx.y.z`. Details in [`GITHUB_COMMIT_RULE.md`](GITHUB_COMMIT_RULE.md).
+Simplified Gitflow: **`develop`** (integration, by pull request) → **`release/vX.Y.Z`** (version bump in `pom.xml` +
+CHANGELOG, final local test) → PR into **`main`** (production). On that merge the pipeline tags `vX.Y.Z`, publishes the
+GitHub Release, deploys the tag to Render and merges `main` back into `develop`. Details in
+[`GITHUB_COMMIT_RULE.md`](GITHUB_COMMIT_RULE.md#branches--release-flow).
 
 ## Licence
 

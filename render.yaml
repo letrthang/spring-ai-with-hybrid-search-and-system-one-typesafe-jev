@@ -1,12 +1,12 @@
-# Render Blueprint. The service builds the `release` branch, but it does NOT auto-deploy: a release is deployed only by
-# .github/workflows/deploy.yml (workflow_dispatch → Render deploy hook; see GITHUB_COMMIT_RULE.md, #141). Keep
-# Auto-Deploy OFF in the Render dashboard too. No secrets here: the owner's
+# Render Blueprint. The service tracks `main`, but it does NOT auto-deploy: a release is deployed only by
+# .github/workflows/deploy.yml (tag vX.Y.Z on main → Render deploy hook with ref=<tagged commit>; see GITHUB_COMMIT_RULE.md).
+# Keep Auto-Deploy OFF in the Render dashboard too. No secrets here: the owner's
 # default keys are environment variables set in the Render dashboard (RAGDEMO_*).
 services:
   - type: web
     name: spring-ai-with-hybrid-search-and-system-one-typesafe-jev
     runtime: docker
     plan: free
-    branch: release
+    branch: main
     autoDeploy: false
     healthCheckPath: /actuator/health
