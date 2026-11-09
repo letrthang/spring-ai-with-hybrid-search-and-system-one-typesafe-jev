@@ -6,6 +6,8 @@ the project uses [Semantic Versioning](https://semver.org/). Branches: `develop`
 
 ## [Unreleased]
 
+## [1.2.3] — 2026-11-09
+
 ### Changed
 - **Simplified Gitflow: `release/vX.Y.Z` → `main`, automatic tag + GitHub Release, deploy from tags, back-merge.** A
   release is a `release/vX.Y.Z` branch from `develop` (the `pom.xml` version and the CHANGELOG section are set there, it
