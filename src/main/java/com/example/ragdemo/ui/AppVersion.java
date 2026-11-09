@@ -7,7 +7,7 @@ import java.util.Properties;
 /**
  * The version this build runs: {@code build.version} from Spring Boot's {@code META-INF/build-info.properties}, which
  * the {@code build-info} goal of spring-boot-maven-plugin writes from the {@code pom.xml} version. On the
- * {@code release} branch (what Render deploys) that is the release version, e.g. 1.0.0; on {@code develop} a snapshot.
+ * release tag on {@code main} (what Render deploys) that is the release version, e.g. 1.0.0; on {@code develop} a snapshot.
  */
 final class AppVersion {
 

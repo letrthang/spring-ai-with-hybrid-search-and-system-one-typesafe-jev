@@ -1,106 +1,106 @@
-# Release & deploy to Render — started ONLY by hand (workflow_dispatch), never by a push.
+# Deploy to production — ONLY a tag vX.Y.Z that is on `main` (simplified Gitflow, see GITHUB_COMMIT_RULE.md).
+# It starts in three ways:
+#   - release.yml CALLS it right after it tags the merge of `release/vX.Y.Z` into `main` (the normal path: a tag pushed
+#     with a workflow's own GITHUB_TOKEN cannot start another workflow, so the push-tag trigger below would not fire);
+#   - a person pushes a tag `v*` that points to a commit on `main`;
+#   - by hand, to redeploy or roll back to an existing tag:
+#       gh workflow run deploy.yml --ref main -f tag=vX.Y.Z
+# A tag that is not on `main`, or is not vX.Y.Z, is refused before anything is deployed.
 #
-#   gh workflow run deploy.yml --repo letrthang/spring-ai-with-hybrid-search-and-system-one-typesafe-jev \
-#     --ref release -f version=1.2.0 [-f tag=v1.2.0] [-f environment=production]
-#
-# The bot runs it when the developer asks for a release, after the PR main → release is merged
-# (see GITHUB_COMMIT_RULE.md "A new release"). Render's own Auto-Deploy is OFF, so this is the only deploy path.
-# Requires the repo secret RENDER_DEPLOY_HOOK_URL (Render → the service → Settings → Deploy Hook).
+# Render: the service tracks `main` with Auto-Deploy OFF, so a push to `main` deploys nothing — only this workflow does,
+# through the deploy hook with `ref=<tagged commit>`. Requires the repo secret RENDER_DEPLOY_HOOK_URL (Render → the
+# service → Settings → Deploy Hook; it already carries `?key=`). The URL is never printed.
 # Never run it to "test" it: every run deploys production.
-# All dates and times are UTC: the release date is the CHANGELOG heading `## [x.y.z] — YYYY-MM-DD` (a UTC date).
-name: Release & Deploy to Render
+# All dates are UTC: the release date is the CHANGELOG heading `## [x.y.z] — YYYY-MM-DD`.
+name: Deploy to production
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      version:
-        description: "Release version x.y.z (must equal the pom.xml version on release)"
+      tag:
+        description: "Tag to deploy (vX.Y.Z on main)"
         required: true
         type: string
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
       tag:
-        description: "Git tag to create (default: v<version>)"
-        required: false
+        description: "Tag to deploy (vX.Y.Z on main), e.g. a previous tag to roll back"
+        required: true
         type: string
-        default: ""
-      environment:
-        description: "Target environment"
-        required: false
-        type: choice
-        options:
-          - production
-        default: production
 
 permissions:
-  contents: write   # create the tag and the GitHub release
-
-concurrency:
-  group: deploy-render
-  cancel-in-progress: false
-
-env:
-  LIVE_URL: https://spring-ai-with-hybrid-search-and-system.onrender.com
+  contents: read
 
 jobs:
-  release:
+  deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      VERSION: ${{ inputs.version }}
-      TAG: ${{ inputs.tag != '' && inputs.tag || format('v{0}', inputs.version) }}
-      TARGET_ENV: ${{ inputs.environment }}
-
+      LIVE_URL: https://spring-ai-with-hybrid-search-and-system.onrender.com
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     steps:
-      # ─── 1. Guards that need no checkout ───
-      - name: Check ref, inputs and secret
+      - name: Resolve the tag
+        id: tag
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! [[ "${TAG}" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::'${TAG}' is not a vX.Y.Z tag"
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ steps.tag.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Guard - the tag is on main
+        id: guard
+        run: |
+          set -euo pipefail
+          git fetch -q origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::${{ steps.tag.outputs.tag }} is not on main: production deploys only from main"
+            exit 1
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "✅ ${{ steps.tag.outputs.tag }} = $(git rev-parse --short HEAD) on main"
+
+      # ─── repo-specific deploy steps follow (use steps.tag.outputs.version / .tag and steps.guard.outputs.sha) ───
+      - name: Check the RENDER_DEPLOY_HOOK_URL secret
         env:
           HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          set -euo pipefail
-          if [ "$GITHUB_REF" != "refs/heads/release" ]; then
-            echo "::error::Run this workflow on the release branch (--ref release), not $GITHUB_REF."; exit 1
-          fi
-          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::version must be x.y.z, got '$VERSION'."; exit 1
-          fi
           if [ -z "$HOOK" ]; then
             echo "::error::Repo secret RENDER_DEPLOY_HOOK_URL is not set (Render → the service → Settings → Deploy Hook)."; exit 1
           fi
-          echo "🏷️ version $VERSION · tag $TAG · environment $TARGET_ENV"
 
-      # ─── 2. Checkout the release head (full history for the tag check) ───
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # ─── 3. Guards on the code ───
-      - name: Check pom version, CHANGELOG and tag
+      - name: Check pom version and CHANGELOG
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
         run: |
           set -euo pipefail
           # the project's own <version> is the first one in pom.xml (it sits above <parent>)
           POM_VERSION=$(sed -n 's:.*<version>\(.*\)</version>.*:\1:p' pom.xml | head -n 1)
           if [ "$POM_VERSION" != "$VERSION" ]; then
-            echo "::error::pom.xml version on release is '$POM_VERSION', not '$VERSION'. Merge the release PR first."; exit 1
+            echo "::error::pom.xml version at this tag is '$POM_VERSION', not '$VERSION'. Bump it on the release branch."; exit 1
           fi
           HEADING=$(grep -E "^## \[$(printf '%s' "$VERSION" | sed 's/\./\\./g')\]" CHANGELOG.md | head -n 1 || true)
           if [ -z "$HEADING" ]; then
             echo "::error::CHANGELOG.md has no '## [$VERSION]' section."; exit 1
           fi
-          # the release date (UTC) comes from the heading: "## [x.y.z] — YYYY-MM-DD"
-          RELEASE_DATE=$(printf '%s' "$HEADING" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -n 1 || true)
-          if [ -z "$RELEASE_DATE" ]; then
+          if ! printf '%s' "$HEADING" | grep -qE '[0-9]{4}-[0-9]{2}-[0-9]{2}'; then
             echo "::error::The heading '$HEADING' has no date. Write '## [$VERSION] — YYYY-MM-DD' (UTC)."; exit 1
           fi
-          TODAY_UTC=$(date -u +%Y-%m-%d)
-          if [ "$RELEASE_DATE" != "$TODAY_UTC" ]; then
-            echo "::warning::CHANGELOG date $RELEASE_DATE is not today's UTC date $TODAY_UTC. The release title uses $RELEASE_DATE."
-          fi
-          echo "RELEASE_DATE=$RELEASE_DATE" >> "$GITHUB_ENV"
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
-            echo "::error::Tag $TAG already exists. Never reuse a version."; exit 1
-          fi
 
-      # ─── 4. Build and test ───
       - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
@@ -112,7 +112,7 @@ jobs:
         run: |
           set -euo pipefail
           ./mvnw -B clean verify
-          # totals for the release notes, from the surefire / failsafe XML reports
+          # totals from the surefire / failsafe XML reports
           read -r T F E S C < <(cat target/surefire-reports/TEST-*.xml target/failsafe-reports/TEST-*.xml 2>/dev/null \
             | grep -o '<testsuite [^>]*>' \
             | awk '{ for (k = 1; k <= NF; k++) { split($k, a, "\""); n = a[2] + 0;
@@ -122,21 +122,25 @@ jobs:
           echo "TESTS_LINE=$T tests, $F failures, $E errors, $S skipped ($C test classes)" >> "$GITHUB_ENV"
           echo "🧪 $T tests, $F failures, $E errors, $S skipped ($C classes)"
 
-      # ─── 5. Deploy through Render's deploy hook ───
-      - name: Trigger Render deploy
+      # Render deploys exactly the tagged commit: the hook takes `ref=<sha>` (the commit must be on the tracked branch `main`,
+      # which the guard above checked). The hook URL already holds `?key=…`, so the ref is appended with `&`.
+      - name: Trigger Render deploy of the tagged commit
         env:
           HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          SHA: ${{ steps.guard.outputs.sha }}
         run: |
           set -euo pipefail
-          curl -fsS -X POST "$HOOK" -o /dev/null
+          curl -fsS -X POST "${HOOK}&ref=${SHA}" -o /dev/null
           echo "DEPLOY_TS=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_ENV"
-          echo "🚀 Render deploy triggered for $GITHUB_SHA"
+          echo "🚀 Render deploy triggered for ${SHA}"
 
-      # ─── 6. Wait until the live app runs the NEW version ───
       # The free plan builds the Docker image (~5–10 min) and cold-starts, and the old instance keeps answering
-      # meanwhile, so "UP" alone proves nothing: wait until /actuator/info reports build.version = the release version.
-      # Releases up to 1.2.0 had no /actuator/info; if it is missing, fall back to /actuator/health = UP.
+      # meanwhile, so "UP" alone proves nothing: wait until /actuator/info reports build.version = the tag's version.
+      # Builds without /actuator/info fall back to /actuator/health = UP.
       - name: Wait for the live app to run the new version
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -uo pipefail
           sleep 120
@@ -144,58 +148,21 @@ jobs:
             INFO=$(curl -s -m 60 "$LIVE_URL/actuator/info" || true)
             HEALTH=$(curl -s -m 60 "$LIVE_URL/actuator/health" || true)
             if printf '%s' "$INFO" | grep -q "\"version\":\"$VERSION\"" && printf '%s' "$HEALTH" | grep -q '"status":"UP"'; then
-              echo "LIVE_TS=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_ENV"
-              echo "LIVE_CHECK=\`/actuator/info\` reports build.version $VERSION and \`/actuator/health\` is UP" >> "$GITHUB_ENV"
-              echo "✅ $LIVE_URL runs $VERSION and is UP (attempt $i)"; exit 0
+              LIVE_CHECK="\`/actuator/info\` reports build.version $VERSION and \`/actuator/health\` is UP"
+              echo "✅ $LIVE_URL runs $VERSION and is UP (attempt $i)"; break
             fi
             if ! printf '%s' "$INFO" | grep -q '"build"' && printf '%s' "$HEALTH" | grep -q '"status":"UP"' && [ "$i" -ge 15 ]; then
-              echo "LIVE_TS=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_ENV"
-              echo "LIVE_CHECK=\`/actuator/health\` is UP (this build exposes no \`/actuator/info\`, so the version was not checked)" >> "$GITHUB_ENV"
-              echo "::warning::$LIVE_URL has no /actuator/info; accepted /actuator/health = UP without a version check."; exit 0
+              LIVE_CHECK="\`/actuator/health\` is UP (this build exposes no \`/actuator/info\`, so the version was not checked)"
+              echo "::warning::$LIVE_URL has no /actuator/info; accepted /actuator/health = UP without a version check."; break
+            fi
+            if [ "$i" -eq 70 ]; then
+              echo "::error::$LIVE_URL did not run $VERSION in time. Check the Render dashboard (Events / Logs)."; exit 1
             fi
             echo "… not on $VERSION yet (attempt $i)"; sleep 20
           done
-          echo "::error::$LIVE_URL did not run $VERSION in time. Check the Render dashboard (Events / Logs)."; exit 1
-
-      # ─── 7. Tag + GitHub release: notes = CHANGELOG section + PRs + what was verified + build facts ───
-      - name: Tag and publish the GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          REPO_URL="https://github.com/$GITHUB_REPOSITORY"
-          RUN_URL="$REPO_URL/actions/runs/$GITHUB_RUN_ID"
-          PREV_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --exclude-drafts --exclude-pre-releases \
-                       --json tagName -q '.[0].tagName' || true)
           {
-            awk -v v="$VERSION" '
-              index($0, "## [" v "]") == 1 { f = 1; next }
-              f && /^## \[/ { exit }
-              f { print }
-            ' CHANGELOG.md
-            echo
-            if [ -n "$PREV_TAG" ]; then
-              echo "### Pull requests since $PREV_TAG"
-              gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$TAG" \
-                -f target_commitish="$GITHUB_SHA" -f previous_tag_name="$PREV_TAG" -q .body \
-                | sed -e '/^## What.s Changed/d' -e '/^\*\*Full Changelog\*\*/d' -e '/^$/d'
-              echo
-            fi
-            echo "### Verified"
-            echo "- **Build and tests:** \`./mvnw clean verify\` on JDK 25 (Temurin) — $TESTS_LINE."
-            echo "- **Deploy:** Render deploy hook called at $DEPLOY_TS; live at $LIVE_TS — $LIVE_CHECK."
-            echo "- **Release run:** [$GITHUB_WORKFLOW #$GITHUB_RUN_NUMBER]($RUN_URL), started by @$GITHUB_ACTOR (environment \`$TARGET_ENV\`)."
-            echo
-            echo "### Build"
-            echo "- Commit: [\`${GITHUB_SHA:0:8}\`]($REPO_URL/commit/$GITHUB_SHA) on \`release\`."
-            if [ -n "$PREV_TAG" ]; then
-              echo "- Previous release: [$PREV_TAG]($REPO_URL/releases/tag/$PREV_TAG) · Full changelog: [$PREV_TAG...$TAG]($REPO_URL/compare/$PREV_TAG...$TAG)"
-            fi
-            echo "- All dates and times are UTC."
-            echo
-            echo "Live app version: $VERSION — $LIVE_URL"
-          } > notes.md
-          cat notes.md
-          gh release create "$TAG" --target "$GITHUB_SHA" \
-            --title "$TAG — ${RELEASE_DATE//-/.}" --notes-file notes.md
-          echo "🏁 Released $TAG: $REPO_URL/releases/tag/$TAG"
+            echo "### Deployed \`$TAG\` to Render"
+            echo "- Build and tests: \`./mvnw clean verify\` on JDK 25 (Temurin) — $TESTS_LINE."
+            echo "- Render deploy hook called at $DEPLOY_TS; live at $(date -u +'%Y-%m-%d %H:%M:%S UTC') — $LIVE_CHECK."
+            echo "- Live app: $LIVE_URL"
+          } >> "$GITHUB_STEP_SUMMARY"
