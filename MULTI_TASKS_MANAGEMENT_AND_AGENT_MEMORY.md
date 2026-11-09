@@ -11,7 +11,7 @@ How an AI agent plans, tracks, remembers and delivers a **big module with many t
    - `GITHUB_COMMIT_RULE.md`: commit, branch and PR rules.
    - this file.
    - any design `.md` next to the module you are changing.
-2. **Pull the latest `main`:** `git fetch origin && git pull --ff-only` on `main`. Do your work in a fresh git worktree off `origin/main`, never in a stale branch.
+2. **Pull the latest `develop`:** `git fetch origin && git pull --ff-only` on `develop`. Do your work in a fresh git worktree off `origin/develop`, never in a stale branch.
 3. **Design docs are not gospel.** Check each decision against what is actually built (code, the running apps, the localhost data). If the implementation is right and the doc is stale, update the doc.
 
 ## 1. Plan before you build
@@ -72,23 +72,26 @@ Prefer **small, independently mergeable slices** over one big change. Keep the p
 - **Never put secrets** (tokens, passwords, keys) into issues, PRs, memory or commits. Point to where a credential is stored instead, e.g. a local, untracked `.env` file.
 - When memory and an issue disagree, **the issue wins.** Fix the memory.
 
-## 4. Finish each task: PR → test → merge → back to main
+## 4. Finish each task: PR → `develop` → test
+
+The repo follows the simplified Gitflow (see `GITHUB_COMMIT_RULE.md`): **`develop`** is the integration branch and **`main`** the production branch. Branch from `develop` (`feat/*`, `bugfix/*` or `docs/*`), never from `main`. Only a `release/vX.Y.Z` branch, cut from `develop` when the owner asks for a release, is ever merged into `main`.
 
 When a sub-issue (or an issue) is done:
-1. **Open a pull request** from its branch with the code, tests and docs. The PR body:
+1. **Open a pull request into `develop`** from its branch with the code, tests and docs. The PR body:
    - says `Closes #<sub-issue>`;
    - lists the tests run, with results;
    - lists the live check, with screenshots or evidence;
    - says what was **not** done.
 
-   Follow that repo's `GITHUB_COMMIT_RULE.md`. Stage explicit paths only, and never commit build-generated changes (e.g. a `package-lock.json` rewrite) or secrets.
-2. **Test:**
+   Follow that repo's `GITHUB_COMMIT_RULE.md`. Stage explicit paths only, and never commit build-generated changes (e.g. a `package-lock.json` rewrite) or secrets. Add a line for the change under `## [Unreleased]` in `CHANGELOG.md`.
+2. **Test the branch:**
    - **Tests:** run the affected test classes (not the whole suite unless asked);
    - **live check:** on the running app, logged in with the test credentials;
    - **logs:** confirm 0 ERROR lines and no browser console errors.
-3. **Merge to `main`** once it's verified. Small PRs, merged fast. Delete the branch and remove the worktree.
-4. **Switch to `main`, pull the latest code, rebuild and restart the app on its port from `main`,** then continue with the **next** task from the updated `main`.
-5. **Update the parent issue:** tick the task, link the merged PR, and note anything the next task must know.
+3. **Merge to `develop`** (squash) once it's verified. Small PRs, merged fast. Delete the branch and remove the worktree.
+4. **Build and test the merged `develop` locally:** pull `develop`, rebuild and restart the app on its port from `develop`, and check the change again there.
+5. **No release unless the owner asks.** A `release/vX.Y.Z` branch (its `pom.xml` version and `CHANGELOG.md` section, the fixes from the final test committed directly on it) and its PR into `main` (merge commit, "Gitflow guard" green) happen only on the owner's explicit request. Merging that PR makes the pipeline tag `vX.Y.Z`, publish the GitHub Release, deploy that tag to production and merge `main` back into `develop`. Never push to `main` directly and never tag by hand.
+6. **Update the parent issue:** tick the task, link the merged PR, and note anything the next task must know. Then continue with the **next** task from the updated `develop`.
 
 ## 5. Link related issues with GitHub labels
 
